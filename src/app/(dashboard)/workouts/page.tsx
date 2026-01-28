@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -74,7 +76,7 @@ export default async function WorkoutsPage() {
               {sessions.map((session) => (
                 <Link
                   key={session.id}
-                  href={`/workouts/session/${session.id}`}
+                  href={session.status === 'in_progress' ? `/workouts/session/${session.id}` : `/workouts/${session.id}`}
                   className="flex items-center justify-between p-4 rounded-lg bg-slate-800/50 hover:bg-slate-800 transition-colors group"
                 >
                   <div className="flex items-center gap-4">

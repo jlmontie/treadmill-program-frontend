@@ -1,13 +1,25 @@
+export const dynamic = 'force-dynamic'
+
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
-import { ArrowLeft, Edit, Play, ClipboardCheck, Calendar, User } from 'lucide-react'
+import { ArrowLeft, Edit, Play, ClipboardCheck, Calendar, User, Dumbbell } from 'lucide-react'
+import { AssignProgramForm } from './assign-program-form'
 
 interface AthleteDetailPageProps {
   params: Promise<{ id: string }>
+}
+
+interface Program {
+  id: number
+  name: string
+  athlete_type: string
+  level: string
+  metabolic_category: string
+  total_workouts: number
 }
 
 // Type for the joined athlete data
@@ -71,9 +83,25 @@ export default async function AthleteDetailPage({ params }: AthleteDetailPagePro
 
   const athlete = data as unknown as AthleteWithRelations
 
+  // Fetch all programs for assignment
+  const { data: programsData } = await supabase
+    .from('programs')
+    .select('id, name, athlete_type, level, metabolic_category, total_workouts')
+    .order('athlete_type')
+    .order('level')
+
+  const programs = (programsData || []) as unknown as Program[]
+
   const activeProgram = athlete.athlete_programs?.find(
     (ap) => ap.status === 'active'
   )
+  
+  const hasActiveProgram = !!activeProgram
+  
+  // Get most recent completed pre-test
+  const latestPretest = athlete.pretest_sessions
+    ?.filter(s => s.status === 'completed')
+    .sort((a, b) => new Date(b.session_date).getTime() - new Date(a.session_date).getTime())[0]
 
   return (
     <div className="space-y-6">
@@ -110,9 +138,17 @@ export default async function AthleteDetailPage({ params }: AthleteDetailPagePro
               Edit
             </Link>
           </Button>
+          <AssignProgramForm 
+            athleteId={id}
+            athleteName={athlete.name}
+            athleteGender={athlete.gender}
+            programs={programs}
+            hasActiveProgram={hasActiveProgram}
+            pretestSessionId={latestPretest?.id}
+          />
           {activeProgram && (
             <Button asChild className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 shadow-lg shadow-cyan-500/25">
-              <Link href={`/workouts/new?athlete=${id}`}>
+              <Link href="/workouts/new">
                 <Play className="mr-2 h-4 w-4" />
                 Start Workout
               </Link>
@@ -214,13 +250,17 @@ export default async function AthleteDetailPage({ params }: AthleteDetailPagePro
               </div>
             ) : (
               <div className="text-center py-4">
+                <Dumbbell className="mx-auto h-8 w-8 text-slate-600 mb-2" />
                 <p className="text-slate-400 mb-3">No active program</p>
-                <Button asChild variant="outline" size="sm" className="border-slate-700 text-slate-300 hover:bg-slate-800">
-                  <Link href={`/pretests/new?athlete=${id}`}>
-                    <ClipboardCheck className="mr-2 h-4 w-4" />
-                    Start Pre-Test
-                  </Link>
-                </Button>
+                <div className="flex flex-col gap-2">
+                  <Button asChild variant="outline" size="sm" className="border-slate-700 text-slate-300 hover:bg-slate-800">
+                    <Link href={`/pretests/new?athlete=${id}`}>
+                      <ClipboardCheck className="mr-2 h-4 w-4" />
+                      Start Pre-Test
+                    </Link>
+                  </Button>
+                  <p className="text-xs text-slate-500">or use Assign Program button above</p>
+                </div>
               </div>
             )}
           </CardContent>
