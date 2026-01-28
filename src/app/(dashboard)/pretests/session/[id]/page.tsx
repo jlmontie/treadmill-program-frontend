@@ -54,8 +54,8 @@ export default async function PretestSessionPage({
       id,
       status,
       session_date,
-      athletes (id, name, gender),
-      pretest_types (
+      athletes!athlete_id (id, name, gender),
+      pretest_types!pretest_type_id (
         id,
         name,
         pretest_steps (
@@ -67,7 +67,7 @@ export default async function PretestSessionPage({
           gate_instruction
         )
       ),
-      pretest_step_results (
+      pretest_step_results!pretest_session_id (
         pretest_step_id,
         completion_level,
         notes,

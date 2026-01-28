@@ -15,8 +15,10 @@ import {
   TrendingUp,
   Award,
   AlertCircle,
-  CheckCircle2
+  CheckCircle2,
+  Plus
 } from 'lucide-react'
+import { EditMetabolicForm } from './edit-metabolic-form'
 
 export const dynamic = 'force-dynamic'
 
@@ -70,7 +72,7 @@ export default async function PretestDetailPage({
   const { id } = await params
   const supabase = await createClient()
 
-  // Fetch session with all related data
+  // Fetch session with related data (except metabolic which we fetch separately)
   const { data: session, error } = await supabase
     .from('pretest_sessions')
     .select(`
@@ -104,15 +106,6 @@ export default async function PretestDetailPage({
           time_pattern,
           gate_instruction
         )
-      ),
-      metabolic_results (
-        at_hr,
-        max_hr,
-        at_max_percent,
-        recovery_hr_2min,
-        recovery_at_percent,
-        metabolic_category,
-        notes
       )
     `)
     .eq('id', id)
@@ -122,13 +115,20 @@ export default async function PretestDetailPage({
     notFound()
   }
 
-  const typedSession = session as unknown as PretestSession
+  // Fetch metabolic results separately (more reliable)
+  const { data: metabolicData } = await supabase
+    .from('metabolic_results')
+    .select('*')
+    .eq('pretest_session_id', id)
+    .single()
+
+  const typedSession = session as unknown as Omit<PretestSession, 'metabolic_results'>
 
   const athlete = typedSession.athletes
   const pretestType = typedSession.pretest_types
   const steps = pretestType?.pretest_steps?.sort((a, b) => a.step_number - b.step_number) || []
   const results = typedSession.pretest_step_results || []
-  const metabolic = typedSession.metabolic_results?.[0]
+  const metabolic = metabolicData as MetabolicResult | null
 
   // Create a map of step results
   const resultsByStep = new Map(results.map((r) => [r.pretest_step_id, r]))
@@ -341,13 +341,28 @@ export default async function PretestDetailPage({
         {/* Metabolic Results */}
         <Card className="bg-slate-900/50 border-slate-800">
           <CardHeader>
-            <CardTitle className="text-white flex items-center gap-2">
-              <Heart className="h-5 w-5 text-rose-400" />
-              Metabolic Results
-            </CardTitle>
-            <CardDescription className="text-slate-400">
-              Heart rate measurements and calculated metrics
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <Heart className="h-5 w-5 text-rose-400" />
+                  Metabolic Results
+                </CardTitle>
+                <CardDescription className="text-slate-400">
+                  Heart rate measurements and calculated metrics
+                </CardDescription>
+              </div>
+              {typedSession.status === 'completed' && (
+                <EditMetabolicForm 
+                  sessionId={id} 
+                  currentData={metabolic ? {
+                    at_hr: metabolic.at_hr,
+                    max_hr: metabolic.max_hr,
+                    recovery_hr_2min: metabolic.recovery_hr_2min,
+                    notes: metabolic.notes,
+                  } : null}
+                />
+              )}
+            </div>
           </CardHeader>
           <CardContent className="space-y-6">
             {metabolic ? (
@@ -442,12 +457,19 @@ export default async function PretestDetailPage({
               <div className="text-center py-8">
                 <Heart className="mx-auto h-12 w-12 text-slate-600" />
                 <p className="mt-4 text-slate-400">No metabolic data recorded yet</p>
-                {typedSession.status === 'in_progress' && (
+                {typedSession.status === 'in_progress' ? (
                   <Button asChild className="mt-4" variant="outline">
                     <Link href={`/pretests/session/${id}`}>
                       Continue Pre-Test
                     </Link>
                   </Button>
+                ) : typedSession.status === 'completed' && (
+                  <div className="mt-4">
+                    <EditMetabolicForm 
+                      sessionId={id} 
+                      currentData={null}
+                    />
+                  </div>
                 )}
               </div>
             )}

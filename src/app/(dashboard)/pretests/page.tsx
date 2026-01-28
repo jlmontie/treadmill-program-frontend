@@ -24,8 +24,8 @@ export default async function PretestsPage() {
       id,
       session_date,
       status,
-      athletes!inner (id, name),
-      pretest_types!inner (name, code)
+      athletes!athlete_id (id, name),
+      pretest_types!pretest_type_id (name, code)
     `)
     .order('created_at', { ascending: false })
     .limit(50)
