@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { ArrowLeft, Activity, Gauge, Timer, ChevronRight } from 'lucide-react'
 import { PretestStepCard } from './pretest-step-card'
 import { MetabolicResultsForm } from './metabolic-results-form'
+import { RealtimePretest } from './realtime-pretest'
 
 export const dynamic = 'force-dynamic'
 
@@ -104,6 +105,7 @@ export default async function PretestSessionPage({
   const currentStep = currentStepIndex >= 0 ? steps[currentStepIndex] : null
 
   return (
+    <RealtimePretest sessionId={id}>
     <div className="space-y-6">
       {/* Page Header */}
       <div className="flex items-center justify-between">
@@ -296,6 +298,7 @@ export default async function PretestSessionPage({
         </>
       )}
     </div>
+    </RealtimePretest>
   )
 }
 

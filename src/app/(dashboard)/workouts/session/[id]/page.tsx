@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { ArrowLeft, Dumbbell, Clock, User, Activity } from 'lucide-react'
 import { ExerciseCard } from './exercise-card'
 import { WorkoutCompleteForm } from './workout-complete-form'
+import { RealtimeSession } from './realtime-session'
 
 export const dynamic = 'force-dynamic'
 
@@ -132,6 +133,7 @@ export default async function WorkoutSessionPage({
     : 0
 
   return (
+    <RealtimeSession sessionId={id}>
     <div className="space-y-6">
       {/* Page Header */}
       <div className="flex items-center justify-between">
@@ -336,6 +338,7 @@ export default async function WorkoutSessionPage({
         </>
       )}
     </div>
+    </RealtimeSession>
   )
 }
 

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { Users, Dumbbell, ClipboardCheck, TrendingUp, Plus, Play } from 'lucide-react'
+import { ActiveSessions } from '@/components/dashboard/active-sessions'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,18 +28,38 @@ interface RecentWorkout {
   }
 }
 
+interface ActiveSessionRaw {
+  id: string
+  status: string
+  started_at: string | null
+  athlete_program_id: string
+  program_workout_id: number
+  athlete_programs: {
+    athletes: { name: string }
+  } | null
+  program_workouts: {
+    workout_number: number
+    programs: { name: string }
+    workout_exercises: Array<{ id: number }>
+  } | null
+  exercise_results: Array<{ id: string }>
+}
+
 export default async function DashboardPage() {
   const supabase = await createClient()
 
-  // Fetch stats
+  // Fetch all data in parallel
   const [
     { count: athleteCount },
     { count: activeWorkoutCount },
+    { count: completedWorkoutCount },
     athletesResult,
     workoutsResult,
+    activeSessionsResult,
   ] = await Promise.all([
     supabase.from('athletes').select('*', { count: 'exact', head: true }),
     supabase.from('workout_sessions').select('*', { count: 'exact', head: true }).eq('status', 'in_progress'),
+    supabase.from('workout_sessions').select('*', { count: 'exact', head: true }).eq('status', 'completed'),
     supabase.from('athletes').select('id, name, sport, gender').order('created_at', { ascending: false }).limit(5),
     supabase
       .from('workout_sessions')
@@ -46,20 +67,63 @@ export default async function DashboardPage() {
         id,
         status,
         started_at,
-        athlete_programs!inner (
-          athletes!inner (name)
+        athlete_programs (
+          athletes (name)
         ),
-        program_workouts!inner (
+        program_workouts (
           workout_number,
-          programs!inner (name)
+          programs (name)
         )
       `)
+      .neq('status', 'in_progress')
       .order('created_at', { ascending: false })
       .limit(5),
+    // Fetch active sessions with exercise counts
+    supabase
+      .from('workout_sessions')
+      .select(`
+        id,
+        status,
+        started_at,
+        athlete_program_id,
+        program_workout_id,
+        athlete_programs (
+          athletes (name)
+        ),
+        program_workouts (
+          workout_number,
+          programs (name),
+          workout_exercises (id)
+        ),
+        exercise_results (id)
+      `)
+      .eq('status', 'in_progress')
+      .order('started_at', { ascending: false })
+      .limit(6),
   ])
 
   const recentAthletes = (athletesResult.data || []) as unknown as RecentAthlete[]
   const recentWorkouts = (workoutsResult.data || []) as unknown as RecentWorkout[]
+  
+  // Format active sessions for the component
+  const activeSessions = ((activeSessionsResult.data || []) as unknown as ActiveSessionRaw[]).map((s) => ({
+    id: s.id,
+    status: s.status,
+    started_at: s.started_at,
+    athlete_program_id: s.athlete_program_id,
+    program_workout_id: s.program_workout_id,
+    athlete_name: s.athlete_programs?.athletes?.name || 'Unknown',
+    workout_number: s.program_workouts?.workout_number || 0,
+    program_name: s.program_workouts?.programs?.name || 'Unknown',
+    total_exercises: s.program_workouts?.workout_exercises?.length || 0,
+    completed_exercises: s.exercise_results?.length || 0,
+  }))
+
+  // Calculate completion rate
+  const totalWorkouts = (completedWorkoutCount || 0) + (activeWorkoutCount || 0)
+  const completionRate = totalWorkouts > 0 
+    ? Math.round(((completedWorkoutCount || 0) / totalWorkouts) * 100) 
+    : 0
 
   const stats = [
     {
@@ -77,15 +141,15 @@ export default async function DashboardPage() {
       shadowColor: 'shadow-emerald-500/20',
     },
     {
-      name: 'Programs Available',
-      value: 36,
+      name: 'Completed Workouts',
+      value: completedWorkoutCount || 0,
       icon: ClipboardCheck,
       color: 'from-violet-500 to-purple-600',
       shadowColor: 'shadow-violet-500/20',
     },
     {
       name: 'Completion Rate',
-      value: '94%',
+      value: `${completionRate}%`,
       icon: TrendingUp,
       color: 'from-amber-500 to-orange-600',
       shadowColor: 'shadow-amber-500/20',
@@ -117,6 +181,9 @@ export default async function DashboardPage() {
           </Button>
         </div>
       </div>
+
+      {/* Active Sessions - Real-time monitoring */}
+      <ActiveSessions initialSessions={activeSessions} />
 
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -207,7 +274,7 @@ export default async function DashboardPage() {
             <div>
               <CardTitle className="text-white">Recent Workouts</CardTitle>
               <CardDescription className="text-slate-400">
-                Latest workout sessions
+                Completed workout sessions
               </CardDescription>
             </div>
             <Button asChild variant="ghost" size="sm" className="text-cyan-400 hover:text-cyan-300 hover:bg-slate-800">
@@ -220,7 +287,7 @@ export default async function DashboardPage() {
                 {recentWorkouts.map((workout) => (
                   <Link
                     key={workout.id}
-                    href={`/workouts/session/${workout.id}`}
+                    href={workout.status === 'in_progress' ? `/workouts/session/${workout.id}` : `/workouts/${workout.id}`}
                     className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 hover:bg-slate-800 transition-colors group"
                   >
                     <div>

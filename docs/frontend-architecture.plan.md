@@ -427,9 +427,9 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 - [x] Speed column selection (1, 2, or 3)
 - [x] Session notes and summary with performance breakdown
 
-### Phase 5: Real-time & Polish
-- [ ] Multi-athlete dashboard (up to 6 concurrent)
-- [ ] Real-time sync between trainers
+### Phase 5: Real-time & Polish (In Progress)
+- [x] Multi-athlete dashboard (up to 6 concurrent with live updates)
+- [x] Real-time sync between trainers (Supabase Realtime on workouts/pretests)
 - [ ] Performance optimization
 - [ ] Error handling & edge cases
 
@@ -492,6 +492,7 @@ treadmill-program-frontend/
 5. ~~Create base layout and navigation~~ ✅
 6. ~~Build athlete management pages~~ ✅
 7. ~~Build pre-test flow~~ ✅
-8. **Implement workout session flow** ← Current priority
-9. Build multi-athlete real-time dashboard
-10. Mobile/touch optimization
+8. ~~Implement workout session flow~~ ✅
+9. ~~Build multi-athlete real-time dashboard~~ ✅
+10. **Performance & error handling** ← Current priority
+11. Mobile/touch optimization
