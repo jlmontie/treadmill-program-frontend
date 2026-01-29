@@ -175,6 +175,17 @@ export async function assignProgram(formData: FormData) {
       .eq('id', existingActive.id)
   }
 
+  // Get the first workout number for this program
+  const { data: firstWorkout } = await supabase
+    .from('program_workouts')
+    .select('workout_number')
+    .eq('program_id', parseInt(programId))
+    .order('workout_number', { ascending: true })
+    .limit(1)
+    .single() as { data: { workout_number: number } | null }
+
+  const firstWorkoutNumber = firstWorkout?.workout_number ?? 2 // Default to 2 if not found
+
   // Create the new program assignment
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase as any)
@@ -185,7 +196,7 @@ export async function assignProgram(formData: FormData) {
       assigned_by: trainer.id,
       pretest_session_id: pretestSessionId || null,
       status: 'active',
-      current_workout_number: 1,
+      current_workout_number: firstWorkoutNumber,
       notes: notes || null,
     })
 

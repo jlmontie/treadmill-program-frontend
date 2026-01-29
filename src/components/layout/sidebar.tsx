@@ -11,6 +11,7 @@ import {
   Library,
   Settings,
   LogOut,
+  UsersRound,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -18,6 +19,7 @@ import { Button } from '@/components/ui/button'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { name: 'Group Session', href: '/sessions/group', icon: UsersRound, highlight: true },
   { name: 'Athletes', href: '/athletes', icon: Users },
   { name: 'Pre-Tests', href: '/pretests', icon: ClipboardCheck },
   { name: 'Workouts', href: '/workouts', icon: Dumbbell },
@@ -59,6 +61,7 @@ export function Sidebar() {
         {navigation.map((item) => {
           const isActive = pathname === item.href || 
             (item.href !== '/' && pathname.startsWith(item.href))
+          const isHighlight = 'highlight' in item && item.highlight
           return (
             <Link
               key={item.name}
@@ -67,16 +70,23 @@ export function Sidebar() {
                 'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150',
                 isActive
                   ? 'bg-gradient-to-r from-cyan-500/10 to-blue-500/10 text-cyan-400 border border-cyan-500/20'
+                  : isHighlight
+                  ? 'bg-gradient-to-r from-emerald-500/10 to-cyan-500/10 text-emerald-400 border border-emerald-500/20 hover:from-emerald-500/20 hover:to-cyan-500/20'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
               )}
             >
               <item.icon
                 className={cn(
                   'h-5 w-5 flex-shrink-0 transition-colors',
-                  isActive ? 'text-cyan-400' : 'text-slate-500 group-hover:text-slate-300'
+                  isActive ? 'text-cyan-400' : isHighlight ? 'text-emerald-400' : 'text-slate-500 group-hover:text-slate-300'
                 )}
               />
               {item.name}
+              {isHighlight && !isActive && (
+                <span className="ml-auto text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full">
+                  NEW
+                </span>
+              )}
             </Link>
           )
         })}
