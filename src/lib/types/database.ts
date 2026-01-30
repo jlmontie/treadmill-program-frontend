@@ -13,6 +13,7 @@ export type CompletionLevel = 'complete' | 'slight_touch' | 'push' | 'failure'
 export type SessionStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled'
 export type ProgramStatus = 'active' | 'completed' | 'paused' | 'cancelled'
 export type Gender = 'male' | 'female'
+export type EquipmentSize = 'small' | 'medium' | 'large'
 export type ExerciseType = 
   | 'run' 
   | 'hold' 
@@ -62,6 +63,8 @@ export type Database = {
           sport: string | null
           position: string | null
           birth_date: string | null
+          head_size: EquipmentSize | null
+          chest_size: EquipmentSize | null
           notes: string | null
           created_at: string
           updated_at: string
@@ -73,6 +76,8 @@ export type Database = {
           sport?: string | null
           position?: string | null
           birth_date?: string | null
+          head_size?: EquipmentSize | null
+          chest_size?: EquipmentSize | null
           notes?: string | null
           created_at?: string
           updated_at?: string
@@ -84,6 +89,8 @@ export type Database = {
           sport?: string | null
           position?: string | null
           birth_date?: string | null
+          head_size?: EquipmentSize | null
+          chest_size?: EquipmentSize | null
           notes?: string | null
           created_at?: string
           updated_at?: string
@@ -322,6 +329,7 @@ export type Database = {
           at_max_percent: number | null
           recovery_hr_2min: number | null
           recovery_at_percent: number | null
+          recovery_hr: number | null
           recommended_program_id: number | null
           metabolic_category: MetabolicCategory | null
           notes: string | null
@@ -336,6 +344,7 @@ export type Database = {
           at_max_percent?: number | null
           recovery_hr_2min?: number | null
           recovery_at_percent?: number | null
+          recovery_hr?: number | null
           recommended_program_id?: number | null
           metabolic_category?: MetabolicCategory | null
           notes?: string | null
@@ -350,6 +359,7 @@ export type Database = {
           at_max_percent?: number | null
           recovery_hr_2min?: number | null
           recovery_at_percent?: number | null
+          recovery_hr?: number | null
           recommended_program_id?: number | null
           metabolic_category?: MetabolicCategory | null
           notes?: string | null
@@ -368,6 +378,7 @@ export type Database = {
           end_date: string | null
           status: ProgramStatus
           current_workout_number: number
+          use_hr_monitoring: boolean | null
           notes: string | null
           created_at: string
           updated_at: string
@@ -382,6 +393,7 @@ export type Database = {
           end_date?: string | null
           status?: ProgramStatus
           current_workout_number?: number
+          use_hr_monitoring?: boolean | null
           notes?: string | null
           created_at?: string
           updated_at?: string
@@ -396,6 +408,7 @@ export type Database = {
           end_date?: string | null
           status?: ProgramStatus
           current_workout_number?: number
+          use_hr_monitoring?: boolean | null
           notes?: string | null
           created_at?: string
           updated_at?: string
@@ -483,6 +496,7 @@ export type Database = {
       session_status: SessionStatus
       program_status: ProgramStatus
       gender: Gender
+      equipment_size: EquipmentSize
       exercise_type: ExerciseType
       metabolic_category: MetabolicCategory
     }

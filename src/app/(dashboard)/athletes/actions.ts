@@ -11,6 +11,8 @@ const AthleteSchema = z.object({
   sport: z.string().optional().nullable(),
   position: z.string().optional().nullable(),
   birth_date: z.string().optional().nullable(),
+  head_size: z.enum(['small', 'medium', 'large']).optional().nullable(),
+  chest_size: z.enum(['small', 'medium', 'large']).optional().nullable(),
   notes: z.string().optional().nullable(),
 })
 
@@ -21,6 +23,8 @@ export type AthleteFormState = {
     sport?: string[]
     position?: string[]
     birth_date?: string[]
+    head_size?: string[]
+    chest_size?: string[]
     notes?: string[]
     _form?: string[]
   }
@@ -39,6 +43,8 @@ export async function createAthlete(
     sport: formData.get('sport') || null,
     position: formData.get('position') || null,
     birth_date: formData.get('birth_date') || null,
+    head_size: formData.get('head_size') || null,
+    chest_size: formData.get('chest_size') || null,
     notes: formData.get('notes') || null,
   })
 
@@ -82,6 +88,8 @@ export async function updateAthlete(
     sport: formData.get('sport') || null,
     position: formData.get('position') || null,
     birth_date: formData.get('birth_date') || null,
+    head_size: formData.get('head_size') || null,
+    chest_size: formData.get('chest_size') || null,
     notes: formData.get('notes') || null,
   })
 
@@ -137,6 +145,8 @@ export async function assignProgram(formData: FormData) {
   const programId = formData.get('program_id') as string
   const pretestSessionId = formData.get('pretest_session_id') as string | null
   const notes = formData.get('notes') as string | null
+  // Default to true (use HR monitoring). If no metabolic results, this can be set to false.
+  const useHrMonitoring = formData.get('use_hr_monitoring') !== 'false'
 
   if (!athleteId || !programId) {
     return { error: 'Athlete and program are required' }
@@ -197,6 +207,7 @@ export async function assignProgram(formData: FormData) {
       pretest_session_id: pretestSessionId || null,
       status: 'active',
       current_workout_number: firstWorkoutNumber,
+      use_hr_monitoring: useHrMonitoring,
       notes: notes || null,
     })
 
