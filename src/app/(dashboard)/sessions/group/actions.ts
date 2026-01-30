@@ -217,3 +217,23 @@ export async function completeWorkoutSession(workoutSessionId: string, notes?: s
 
   return { success: true }
 }
+
+export async function cancelGroupWorkout(workoutSessionId: string) {
+  const supabase = await createClient()
+
+  const { error } = await (supabase
+    .from('workout_sessions') as any)
+    .update({
+      status: 'cancelled',
+    })
+    .eq('id', workoutSessionId)
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+
+  revalidatePath('/sessions/group')
+  revalidatePath('/')
+
+  return { success: true }
+}

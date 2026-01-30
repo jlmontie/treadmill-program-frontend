@@ -12,13 +12,14 @@ import {
   Hand, 
   ArrowUp, 
   X,
+  XCircle,
   Clock,
   Dumbbell,
   ExternalLink,
   Loader2
 } from 'lucide-react'
 import Link from 'next/link'
-import { logExerciseResult } from './actions'
+import { logExerciseResult, cancelGroupWorkout } from './actions'
 
 interface ActiveWorkout {
   id: string
@@ -67,6 +68,7 @@ export function AthleteWorkoutCard({ workout, colorIndex, onRefresh }: AthleteWo
   const [currentExercise, setCurrentExercise] = useState<Exercise | null>(null)
   const [selectedSpeed, setSelectedSpeed] = useState<1 | 2 | 3>(2)
   const [isLogging, setIsLogging] = useState(false)
+  const [isCanceling, setIsCanceling] = useState(false)
   const [elapsedTime, setElapsedTime] = useState('0:00')
   const supabase = createClient()
   const colors = CARD_COLORS[colorIndex % CARD_COLORS.length]
@@ -136,6 +138,26 @@ export function AthleteWorkoutCard({ workout, colorIndex, onRefresh }: AthleteWo
       console.error('Failed to log result:', error)
     } finally {
       setIsLogging(false)
+    }
+  }
+
+  const handleCancel = async () => {
+    if (isCanceling) return
+    
+    if (!confirm(`Cancel ${workout.athlete_name}'s workout? This will discard all progress.`)) {
+      return
+    }
+
+    setIsCanceling(true)
+    try {
+      const result = await cancelGroupWorkout(workout.id)
+      if (result.success) {
+        onRefresh()
+      }
+    } catch (error) {
+      console.error('Failed to cancel workout:', error)
+    } finally {
+      setIsCanceling(false)
     }
   }
 
@@ -341,6 +363,20 @@ export function AthleteWorkoutCard({ workout, colorIndex, onRefresh }: AthleteWo
               <Link href={`/athletes/${workout.athlete_id}`}>
                 View Athlete
               </Link>
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleCancel}
+              disabled={isCanceling}
+              className="border-red-500/30 text-red-400 hover:bg-red-500/10 ml-auto"
+            >
+              {isCanceling ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <XCircle className="h-4 w-4 mr-1" />
+              )}
+              Cancel
             </Button>
           </div>
         </CardContent>

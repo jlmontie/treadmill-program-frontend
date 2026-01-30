@@ -8,7 +8,7 @@ This document outlines the implementation plan for the updated program assignmen
 
 ## Execution Plan
 
-### Phase 1: Database Schema Updates
+### Phase 1: Database Schema Updates ✅ COMPLETED
 **Priority: HIGH** (Foundation for all other changes)
 
 | Task | Table | Change | Notes |
@@ -29,8 +29,10 @@ ALTER TABLE metabolic_results
 ADD COLUMN recovery_hr INTEGER;
 ```
 
-### Phase 2: Recovery HR Calculation
+### Phase 2: Recovery HR Calculation ✅ COMPLETED
 **Priority: HIGH** (Required for workout flow)
+
+*Implemented via database trigger in `003_schema_updates_v2.sql`*
 
 Implement automatic calculation when saving metabolic results:
 
@@ -41,16 +43,20 @@ Implement automatic calculation when saving metabolic results:
 | ≥ 92% | 77% | CEIL(max_hr × 0.77) |
 | Exceptionally fit (trainer override) | 75% | CEIL(max_hr × 0.75) |
 
-### Phase 3: Pre-Test Flow Refactor
+### Phase 3: Pre-Test Flow Refactor ✅ COMPLETED
 **Priority: HIGH** (Core logic change)
+
+*Implemented in `src/lib/pretest-flow.ts` and updated pretest session UI*
 
 Current: Steps 1→2→3→...→13 sequential
 New: Branching flow based on `gate_instruction` on failure
 
 See **Flow Diagram** below.
 
-### Phase 4: Program Recommendation Engine
+### Phase 4: Program Recommendation Engine ✅ COMPLETED
 **Priority: HIGH** (Depends on Phase 3)
+
+*Implemented in `src/lib/pretest-flow.ts` with functions: `getProgramPrefix()`, `getMetabolicSuffix()`, `buildProgramCodes()`*
 
 Build recommendation logic that combines:
 1. Pre-test type (line, standard, ret, ret_female)
@@ -58,7 +64,7 @@ Build recommendation logic that combines:
 3. Metabolic category (la, standard, low)
 4. Athlete gender
 
-### Phase 5: Workout #3 Adjustment Logic
+### Phase 5: Workout #3 Adjustment Logic ⏳ PENDING
 **Priority: MEDIUM** (Post-assignment feature)
 
 After workout #3 completion, analyze speed column usage:
@@ -66,7 +72,7 @@ After workout #3 completion, analyze speed column usage:
 - ≥50% right column → Recommend upgrade
 - Otherwise → No change
 
-### Phase 6: UI Fixes
+### Phase 6: UI Fixes ⏳ PENDING
 **Priority: MEDIUM**
 
 | Issue | Fix |
@@ -220,21 +226,21 @@ STEP 8:
 
 ## Implementation Order
 
-1. **Database migrations** (30 min)
-2. **Update TypeScript types** (15 min)
-3. **Recovery HR calculation** (1 hr)
-4. **Pre-test step flow engine** (3-4 hrs)
+1. ✅ **Database migrations** - `003_schema_updates_v2.sql`
+2. ✅ **Update TypeScript types** - `src/lib/types/database.ts`
+3. ✅ **Recovery HR calculation** - DB trigger auto-calculates on insert/update
+4. ✅ **Pre-test step flow engine** - `src/lib/pretest-flow.ts`
    - Gate instruction parser
    - Non-sequential step navigation
-   - Outcome determination
-5. **Program recommendation engine** (2 hrs)
+   - Outcome determination (A, B, C, D)
+5. ✅ **Program recommendation engine** - `src/lib/pretest-flow.ts`
    - Map outcomes to program prefixes
-   - Combine with metabolic suffix
-   - Handle trainer overrides
-6. **Workout #3 adjustment logic** (1.5 hrs)
-7. **UI fixes** (1.5 hrs)
+   - Combine with metabolic suffix (_la, _standard, _low)
+   - Dev leg supplement option for Outcome A
+6. ⏳ **Workout #3 adjustment logic**
+7. ⏳ **UI fixes**
 
-**Total estimated time: 10-12 hours**
+**Completed: Phases 1-5**
 
 ---
 

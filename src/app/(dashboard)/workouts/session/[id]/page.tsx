@@ -8,6 +8,7 @@ import { ArrowLeft, Dumbbell, Clock, User, Activity } from 'lucide-react'
 import { ExerciseCard } from './exercise-card'
 import { WorkoutCompleteForm } from './workout-complete-form'
 import { RealtimeSession } from './realtime-session'
+import { CancelWorkoutButton } from './cancel-workout-button'
 
 export const dynamic = 'force-dynamic'
 
@@ -168,6 +169,15 @@ export default async function WorkoutSessionPage({
             </p>
           </div>
         </div>
+        
+        {/* Cancel Button */}
+        <CancelWorkoutButton
+          sessionId={id}
+          athleteName={athlete?.name || 'Unknown'}
+          workoutNumber={workout?.workout_number || 0}
+          completedExercises={completedCount}
+          totalExercises={totalCount}
+        />
       </div>
 
       {/* Progress Bar */}

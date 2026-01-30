@@ -7,7 +7,6 @@ import Link from 'next/link'
 import { 
   ArrowLeft, 
   User, 
-  Calendar, 
   ClipboardCheck, 
   Heart, 
   Activity, 
@@ -16,18 +15,29 @@ import {
   Award,
   AlertCircle,
   CheckCircle2,
-  Plus
+  SkipForward,
+  Trophy
 } from 'lucide-react'
 import { EditMetabolicForm } from './edit-metabolic-form'
+import { 
+  calculateFlowState, 
+  getOutcomeDescription, 
+  getOutcomeColor,
+  getMetabolicSuffix,
+  getMetabolicCategoryName,
+  buildProgramRecommendations,
+  type CompletionLevel,
+  type PretestTypeCode
+} from '@/lib/pretest-flow'
 
 export const dynamic = 'force-dynamic'
 
 interface PretestStep {
   id: number
   step_number: number
-  incline: number
-  speed: number
-  time_pattern: string
+  incline: number | null
+  speed: number | null
+  time_pattern: string | null
   gate_instruction: string | null
 }
 
@@ -57,6 +67,7 @@ interface PretestSession {
   trainers: { name: string } | null
   pretest_types: { 
     id: number
+    code: string
     name: string 
     pretest_steps: PretestStep[] 
   } | null
@@ -83,6 +94,7 @@ export default async function PretestDetailPage({
       trainers (name),
       pretest_types (
         id,
+        code,
         name,
         pretest_steps (
           id,
@@ -133,11 +145,27 @@ export default async function PretestDetailPage({
   // Create a map of step results
   const resultsByStep = new Map(results.map((r) => [r.pretest_step_id, r]))
 
+  // Create results map for flow engine
+  const resultsForFlow = new Map<number, { stepNumber: number; completionLevel: CompletionLevel }>()
+  for (const step of steps) {
+    const result = resultsByStep.get(step.id)
+    if (result) {
+      resultsForFlow.set(step.id, {
+        stepNumber: step.step_number,
+        completionLevel: result.completion_level as CompletionLevel
+      })
+    }
+  }
+
+  // Calculate flow state to determine outcome
+  const flowState = calculateFlowState(
+    steps.map(s => ({ id: s.id, step_number: s.step_number })),
+    resultsForFlow
+  )
+
   // Calculate summary stats
   const completedSteps = results.filter(r => r.completion_level === 'complete').length
   const slightTouchSteps = results.filter(r => r.completion_level === 'slight_touch').length
-  const pushSteps = results.filter(r => r.completion_level === 'push').length
-  const failureSteps = results.filter(r => r.completion_level === 'failure').length
 
   // Determine the highest step achieved (last step that wasn't a failure)
   const sortedResults = [...results].sort((a, b) => {
@@ -149,6 +177,14 @@ export default async function PretestDetailPage({
   const highestStep = lastSuccessfulResult 
     ? steps.find(s => s.id === lastSuccessfulResult.pretest_step_id)
     : null
+
+  // Get program recommendations based on outcome
+  const pretestTypeCode = (pretestType?.code || 'standard') as PretestTypeCode
+  const metabolicSuffix = getMetabolicSuffix(metabolic?.at_max_percent ?? null)
+  const metabolicCategoryName = getMetabolicCategoryName(metabolicSuffix)
+  const recommendations = flowState.outcome 
+    ? buildProgramRecommendations(flowState.outcome, pretestTypeCode, metabolic?.at_max_percent ?? null, flowState.showDevLegOption)
+    : []
 
   const statusColor = {
     completed: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
@@ -286,6 +322,7 @@ export default async function PretestDetailPage({
             <div className="space-y-2">
               {steps.map((step) => {
                 const result = resultsByStep.get(step.id)
+                const isSkipped = flowState.skippedSteps.includes(step.step_number)
                 
                 return (
                   <div
@@ -293,6 +330,8 @@ export default async function PretestDetailPage({
                     className={`p-3 rounded-lg border ${
                       result
                         ? getCompletionBorder(result.completion_level)
+                        : isSkipped
+                        ? 'border-slate-700/50 bg-slate-800/20 opacity-50'
                         : 'border-slate-700 bg-slate-800/30'
                     }`}
                   >
@@ -301,16 +340,28 @@ export default async function PretestDetailPage({
                         <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
                           result
                             ? getCompletionBg(result.completion_level)
+                            : isSkipped
+                            ? 'bg-slate-700/50 text-slate-500 line-through'
                             : 'bg-slate-700 text-slate-400'
                         }`}>
                           {step.step_number}
                         </div>
                         <div className="text-sm">
-                          <span className="text-white">{step.incline}%</span>
-                          <span className="text-slate-500 mx-1">@</span>
-                          <span className="text-cyan-400">{step.speed} mph</span>
-                          <span className="text-slate-500 mx-1">•</span>
-                          <span className="text-slate-400">{step.time_pattern}</span>
+                          {step.incline !== null && (
+                            <>
+                              <span className={isSkipped ? 'text-slate-600' : 'text-white'}>{step.incline}%</span>
+                              <span className="text-slate-500 mx-1">@</span>
+                            </>
+                          )}
+                          {step.speed !== null && (
+                            <span className={isSkipped ? 'text-slate-600' : 'text-cyan-400'}>{step.speed} mph</span>
+                          )}
+                          {step.time_pattern && (
+                            <>
+                              <span className="text-slate-500 mx-1">•</span>
+                              <span className={isSkipped ? 'text-slate-600' : 'text-slate-400'}>{step.time_pattern}</span>
+                            </>
+                          )}
                         </div>
                       </div>
                       {result ? (
@@ -319,6 +370,11 @@ export default async function PretestDetailPage({
                           className={getCompletionBadgeStyle(result.completion_level)}
                         >
                           {getCompletionLabel(result.completion_level)}
+                        </Badge>
+                      ) : isSkipped ? (
+                        <Badge variant="outline" className="bg-slate-800/50 text-slate-500 border-slate-700">
+                          <SkipForward className="h-3 w-3 mr-1" />
+                          Skipped
                         </Badge>
                       ) : (
                         <Badge variant="outline" className="bg-slate-800 text-slate-500 border-slate-700">
@@ -478,31 +534,92 @@ export default async function PretestDetailPage({
       </div>
 
       {/* Program Recommendation */}
-      {typedSession.status === 'completed' && (
+      {typedSession.status === 'completed' && flowState.outcome && (
         <Card className="bg-gradient-to-br from-violet-900/20 to-purple-900/20 border-violet-500/30">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
-              <Award className="h-5 w-5 text-amber-400" />
-              Program Recommendation
+              <Trophy className="h-5 w-5 text-amber-400" />
+              Pre-Test Outcome & Program Recommendation
             </CardTitle>
             <CardDescription className="text-slate-300">
-              Based on pre-test results
+              Based on pre-test step results and metabolic data
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-slate-400 mb-2">
-                  Based on {athlete?.name}&apos;s performance (highest step: {highestStep?.step_number || '—'}, 
-                  speed: {highestStep?.speed || '—'} mph), we recommend:
-                </p>
-                <p className="text-xl font-semibold text-white">
-                  {getProgramRecommendation(highestStep, athlete?.gender || 'male', metabolic?.metabolic_category)}
-                </p>
+          <CardContent className="space-y-4">
+            {/* Outcome Badge */}
+            <div className="flex items-center gap-4">
+              <span className="text-slate-400">Outcome:</span>
+              <Badge variant="outline" className={`text-base px-3 py-1 ${getOutcomeColor(flowState.outcome)}`}>
+                {getOutcomeDescription(flowState.outcome)}
+              </Badge>
+            </div>
+
+            {/* Metabolic Category */}
+            <div className="flex items-center gap-4">
+              <span className="text-slate-400">Metabolic Category:</span>
+              <Badge variant="outline" className={`${
+                metabolic?.metabolic_category === 'la' 
+                  ? 'bg-red-500/10 text-red-400 border-red-500/30'
+                  : metabolic?.metabolic_category === 'low'
+                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                  : 'bg-blue-500/10 text-blue-400 border-blue-500/30'
+              }`}>
+                {metabolicCategoryName}
+              </Badge>
+            </div>
+
+            {/* Recommended Programs */}
+            <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
+              <div className="flex items-center gap-2 mb-3">
+                <Award className="h-4 w-4 text-emerald-400" />
+                <span className="text-emerald-400 font-medium">Recommended Program(s):</span>
               </div>
+              <div className="space-y-2 mb-4">
+                {recommendations.map((rec, idx) => (
+                  <div 
+                    key={idx} 
+                    className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50"
+                  >
+                    <span className="text-white font-medium">{rec.name}</span>
+                    <Badge 
+                      variant="outline" 
+                      className={`${
+                        metabolic?.metabolic_category === 'la' 
+                          ? 'bg-red-500/10 text-red-400 border-red-500/30'
+                          : metabolic?.metabolic_category === 'low'
+                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                          : 'bg-blue-500/10 text-blue-400 border-blue-500/30'
+                      }`}
+                    >
+                      {rec.metabolicCategory}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+              <p className="text-sm text-slate-400">
+                Pre-test type: <span className="text-white">{pretestType?.name}</span> • 
+                Highest step: <span className="text-white">{highestStep?.step_number || '—'}</span>
+                {highestStep?.speed && ` @ ${highestStep.speed} mph`}
+              </p>
+            </div>
+
+            {/* Dev Leg Option Note */}
+            {flowState.showDevLegOption && (
+              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-sm">
+                <span className="text-amber-400 font-medium">Note:</span>
+                <span className="text-slate-300 ml-2">
+                  Trainer may optionally assign a supplemental leg strength program if the athlete 
+                  would benefit from additional leg strengthening.
+                </span>
+              </div>
+            )}
+
+            {/* Assign Button */}
+            <div className="flex justify-end pt-2">
               <Button asChild className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500">
                 <Link href={`/athletes/${athlete?.id}?assign=true`}>
-                  Assign Program
+                  <Award className="mr-2 h-4 w-4" />
+                  Assign Program to {athlete?.name}
                 </Link>
               </Button>
             </div>
@@ -573,35 +690,3 @@ function getCompletionBg(level: string): string {
   }
 }
 
-function getProgramRecommendation(
-  highestStep: { speed: number; incline: number } | null | undefined,
-  gender: string,
-  metabolicCategory: string | null | undefined
-): string {
-  if (!highestStep) {
-    return 'Unable to determine - insufficient test data'
-  }
-
-  const speed = highestStep.speed
-  const isLA = metabolicCategory === 'la'
-  
-  // Simple recommendation logic based on speed achieved
-  // This should be customized based on actual program criteria
-  if (gender === 'female') {
-    if (speed >= 7.0) {
-      return isLA ? 'Female Advanced Program (LA variant)' : 'Female Advanced Program'
-    } else if (speed >= 5.5) {
-      return isLA ? 'Female Intermediate Program (LA variant)' : 'Female Intermediate Program'
-    } else {
-      return isLA ? 'Female Beginner Program (LA variant)' : 'Female Beginner Program'
-    }
-  } else {
-    if (speed >= 8.5) {
-      return isLA ? 'Male Advanced Program (LA variant)' : 'Male Advanced Program'
-    } else if (speed >= 7.0) {
-      return isLA ? 'Male Intermediate Program (LA variant)' : 'Male Intermediate Program'
-    } else {
-      return isLA ? 'Male Beginner Program (LA variant)' : 'Male Beginner Program'
-    }
-  }
-}
