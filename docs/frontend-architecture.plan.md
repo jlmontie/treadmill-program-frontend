@@ -412,24 +412,31 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 - [x] Athlete CRUD (list, create, edit, view detail)
 - [x] Program browser (list by athlete type, view workouts/exercises)
 - [x] Trainer profile management (settings page)
-- [ ] Basic workout session flow
+- [x] Basic workout session flow
 
 ### Phase 3: Pre-Test Module ✅
 - [x] Pre-test type selection (Line, Standard, Returning, Returning Female)
 - [x] Step-by-step protocol with completion scoring (complete, slight_touch, push, failure)
 - [x] Metabolic result entry (AT HR, Max HR, Recovery HR, auto-calculated percentages)
 - [x] Program recommendation based on results
+- [x] Non-sequential step flow with gate instructions (steps 6, 7, 8 branching)
+- [x] Human-readable program names (no database codes in UI)
 
 ### Phase 4: Workout Tracking ✅
 - [x] Start workout session for athlete (select from active programs)
+- [x] Direct workout start from athlete profile page
 - [x] Exercise display with treadmill settings (runs, incline, speed options, time)
 - [x] Completion level logging (complete, slight_touch, push, failure)
 - [x] Speed column selection (1, 2, or 3)
 - [x] Session notes and summary with performance breakdown
+- [x] Cancel workout functionality (single and group sessions)
+- [x] Workout #3 program adjustment analysis and recommendations
 
-### Phase 5: Real-time & Polish (In Progress)
+### Phase 5: Real-time & Polish ✅
 - [x] Multi-athlete dashboard (up to 6 concurrent with live updates)
 - [x] Real-time sync between trainers (Supabase Realtime on workouts/pretests)
+- [x] Gender-based program filtering
+- [x] Recovery HR calculation (database trigger)
 - [ ] Performance optimization
 - [ ] Error handling & edge cases
 
@@ -466,6 +473,8 @@ treadmill-program-frontend/
 │   ├── types/
 │   │   ├── database.ts
 │   │   └── index.ts
+│   ├── pretest-flow.ts          # Pre-test branching logic & program recommendations
+│   ├── workout-adjustment.ts    # Workout #3 speed analysis & adjustment logic
 │   └── utils.ts
 ├── public/
 ├── docs/
@@ -494,5 +503,27 @@ treadmill-program-frontend/
 7. ~~Build pre-test flow~~ ✅
 8. ~~Implement workout session flow~~ ✅
 9. ~~Build multi-athlete real-time dashboard~~ ✅
-10. **Performance & error handling** ← Current priority
-11. Mobile/touch optimization
+10. ~~Implement program assignment logic (pre-test branching, metabolic categories)~~ ✅
+11. ~~Add workout #3 adjustment recommendations~~ ✅
+12. **Performance & error handling** ← Current priority
+13. Mobile/touch optimization
+
+---
+
+## Recent Completions (Jan 2026)
+
+### Pre-Test Flow Enhancements
+- Non-sequential step navigation based on gate_instruction
+- Branching logic for steps 6, 7, 8 determining program outcomes
+- Human-readable program names throughout UI
+- Metabolic category calculation (LA, Standard, Low) based on AT/Max HR %
+
+### Workout Improvements
+- Direct "Start Workout" from athlete profile (bypasses group selection)
+- Cancel workout functionality for both single and group sessions
+- Workout #3 speed column analysis with upgrade/downgrade recommendations
+
+### Database Updates (migration 003)
+- Equipment sizing columns (head_size, chest_size)
+- Recovery HR auto-calculation via trigger
+- HR monitoring preference on athlete programs

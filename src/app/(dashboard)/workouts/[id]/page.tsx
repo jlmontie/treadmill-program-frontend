@@ -10,10 +10,14 @@ import {
   Calendar, 
   Clock, 
   Dumbbell,
-  CheckCircle2,
   TrendingUp,
-  BarChart3
+  BarChart3,
+  ArrowUpCircle,
+  ArrowDownCircle,
+  CheckCircle2,
+  AlertTriangle
 } from 'lucide-react'
+import { analyzeSpeedColumnUsage, isWorkout3 } from '@/lib/workout-adjustment'
 
 export const dynamic = 'force-dynamic'
 
@@ -137,6 +141,13 @@ export default async function WorkoutDetailPage({
   const endTime = typedSession.completed_at ? new Date(typedSession.completed_at) : null
   const durationMinutes = startTime && endTime
     ? Math.round((endTime.getTime() - startTime.getTime()) / 60000)
+    : null
+
+  // Check if this is workout #3 and analyze for program adjustment
+  const workoutNumber = workout?.workout_number || 0
+  const showAdjustmentAnalysis = isWorkout3(workoutNumber) && typedSession.status === 'completed'
+  const speedAnalysis = showAdjustmentAnalysis 
+    ? analyzeSpeedColumnUsage(results.map(r => ({ speed_column_used: r.speed_column_used })))
     : null
 
   const statusColor = {
@@ -290,6 +301,125 @@ export default async function WorkoutDetailPage({
           </div>
         </CardContent>
       </Card>
+
+      {/* Workout #3 Program Adjustment Recommendation */}
+      {showAdjustmentAnalysis && speedAnalysis && (
+        <Card className={`border-2 ${
+          speedAnalysis.recommendation === 'upgrade'
+            ? 'bg-gradient-to-br from-emerald-900/20 to-green-900/20 border-emerald-500/30'
+            : speedAnalysis.recommendation === 'downgrade'
+            ? 'bg-gradient-to-br from-amber-900/20 to-orange-900/20 border-amber-500/30'
+            : 'bg-slate-900/50 border-slate-800'
+        }`}>
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2">
+              {speedAnalysis.recommendation === 'upgrade' ? (
+                <ArrowUpCircle className="h-5 w-5 text-emerald-400" />
+              ) : speedAnalysis.recommendation === 'downgrade' ? (
+                <ArrowDownCircle className="h-5 w-5 text-amber-400" />
+              ) : (
+                <CheckCircle2 className="h-5 w-5 text-cyan-400" />
+              )}
+              Workout #3 Program Adjustment Analysis
+            </CardTitle>
+            <CardDescription className="text-slate-400">
+              Based on speed column usage during this workout
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Speed Column Breakdown */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className={`text-center p-4 rounded-lg ${
+                speedAnalysis.column1Percent >= 50 
+                  ? 'bg-amber-500/20 border-2 border-amber-500/50' 
+                  : 'bg-slate-800/50 border border-slate-700'
+              }`}>
+                <div className="text-2xl font-bold text-white">{speedAnalysis.column1Count}</div>
+                <div className="text-sm text-slate-400">Column 1 (Lower)</div>
+                <div className="text-xs text-slate-500">{speedAnalysis.column1Percent}%</div>
+              </div>
+              <div className={`text-center p-4 rounded-lg ${
+                speedAnalysis.column2Percent >= 50 
+                  ? 'bg-cyan-500/20 border-2 border-cyan-500/50' 
+                  : 'bg-slate-800/50 border border-slate-700'
+              }`}>
+                <div className="text-2xl font-bold text-white">{speedAnalysis.column2Count}</div>
+                <div className="text-sm text-slate-400">Column 2 (Middle)</div>
+                <div className="text-xs text-slate-500">{speedAnalysis.column2Percent}%</div>
+              </div>
+              <div className={`text-center p-4 rounded-lg ${
+                speedAnalysis.column3Percent >= 50 
+                  ? 'bg-emerald-500/20 border-2 border-emerald-500/50' 
+                  : 'bg-slate-800/50 border border-slate-700'
+              }`}>
+                <div className="text-2xl font-bold text-white">{speedAnalysis.column3Count}</div>
+                <div className="text-sm text-slate-400">Column 3 (Higher)</div>
+                <div className="text-xs text-slate-500">{speedAnalysis.column3Percent}%</div>
+              </div>
+            </div>
+
+            {/* Recommendation */}
+            <div className={`p-4 rounded-lg ${
+              speedAnalysis.recommendation === 'upgrade'
+                ? 'bg-emerald-500/10 border border-emerald-500/30'
+                : speedAnalysis.recommendation === 'downgrade'
+                ? 'bg-amber-500/10 border border-amber-500/30'
+                : 'bg-slate-800/50 border border-slate-700'
+            }`}>
+              <div className="flex items-start gap-3">
+                {speedAnalysis.recommendation === 'upgrade' ? (
+                  <ArrowUpCircle className="h-5 w-5 text-emerald-400 mt-0.5" />
+                ) : speedAnalysis.recommendation === 'downgrade' ? (
+                  <AlertTriangle className="h-5 w-5 text-amber-400 mt-0.5" />
+                ) : (
+                  <CheckCircle2 className="h-5 w-5 text-cyan-400 mt-0.5" />
+                )}
+                <div>
+                  <p className={`font-medium ${
+                    speedAnalysis.recommendation === 'upgrade'
+                      ? 'text-emerald-400'
+                      : speedAnalysis.recommendation === 'downgrade'
+                      ? 'text-amber-400'
+                      : 'text-cyan-400'
+                  }`}>
+                    {speedAnalysis.recommendation === 'upgrade' && 'Upgrade Recommended'}
+                    {speedAnalysis.recommendation === 'downgrade' && 'Downgrade Recommended'}
+                    {speedAnalysis.recommendation === 'no_change' && 'No Adjustment Needed'}
+                  </p>
+                  <p className="text-sm text-slate-300 mt-1">
+                    {speedAnalysis.recommendationText}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Button */}
+            {speedAnalysis.recommendation !== 'no_change' && (
+              <div className="flex justify-end">
+                <Button asChild className={`${
+                  speedAnalysis.recommendation === 'upgrade'
+                    ? 'bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500'
+                    : 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500'
+                }`}>
+                  <Link href={`/athletes/${athlete?.id}?assign=true`}>
+                    {speedAnalysis.recommendation === 'upgrade' ? (
+                      <>
+                        <ArrowUpCircle className="mr-2 h-4 w-4" />
+                        Assign Higher Program
+                      </>
+                    ) : (
+                      <>
+                        <ArrowDownCircle className="mr-2 h-4 w-4" />
+                        Assign Lower Program
+                      </>
+                    )}
+                  </Link>
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Session Notes */}
       {typedSession.session_notes && (
