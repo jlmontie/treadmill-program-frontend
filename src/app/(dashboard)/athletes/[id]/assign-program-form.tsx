@@ -66,13 +66,19 @@ export function AssignProgramForm({
     }
   }, [searchParams, athleteId, router])
 
-  // Filter programs by athlete gender (male programs for male, female for female)
+  // Filter programs by athlete gender
+  // Programs with "female" in type/name are for female athletes
+  // All other programs (standard, line, lineman) are for male athletes
   const filteredPrograms = programs.filter(p => {
     const type = p.athlete_type.toLowerCase()
-    if (athleteGender === 'male') {
-      return type.includes('male') || type.includes('lineman')
+    const name = p.name.toLowerCase()
+    const isFemaleProgram = type.includes('female') || name.includes('female')
+    
+    if (athleteGender === 'female') {
+      return isFemaleProgram
     } else {
-      return type.includes('female')
+      // Male athletes get all non-female programs
+      return !isFemaleProgram
     }
   })
 

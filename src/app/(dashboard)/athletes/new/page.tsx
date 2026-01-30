@@ -115,6 +115,47 @@ export default function NewAthletePage() {
               />
             </div>
 
+            {/* Equipment Sizing */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="head_size" className="text-slate-300">
+                  Respirator Mask Size
+                </Label>
+                <Select name="head_size">
+                  <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white focus:border-cyan-500">
+                    <SelectValue placeholder="Select size" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-900 border-slate-700">
+                    <SelectItem value="small" className="text-white focus:bg-slate-800">Small</SelectItem>
+                    <SelectItem value="medium" className="text-white focus:bg-slate-800">Medium</SelectItem>
+                    <SelectItem value="large" className="text-white focus:bg-slate-800">Large</SelectItem>
+                  </SelectContent>
+                </Select>
+                {state.errors?.head_size && (
+                  <p className="text-sm text-red-400">{state.errors.head_size.join(', ')}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="chest_size" className="text-slate-300">
+                  HR Monitor Strap Size
+                </Label>
+                <Select name="chest_size">
+                  <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white focus:border-cyan-500">
+                    <SelectValue placeholder="Select size" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-900 border-slate-700">
+                    <SelectItem value="small" className="text-white focus:bg-slate-800">Small</SelectItem>
+                    <SelectItem value="medium" className="text-white focus:bg-slate-800">Medium</SelectItem>
+                    <SelectItem value="large" className="text-white focus:bg-slate-800">Large</SelectItem>
+                  </SelectContent>
+                </Select>
+                {state.errors?.chest_size && (
+                  <p className="text-sm text-red-400">{state.errors.chest_size.join(', ')}</p>
+                )}
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="notes" className="text-slate-300">Notes</Label>
               <textarea

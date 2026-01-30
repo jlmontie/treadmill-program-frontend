@@ -6,8 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
-import { ArrowLeft, Edit, Play, ClipboardCheck, Calendar, User, Dumbbell } from 'lucide-react'
+import { ArrowLeft, Edit, ClipboardCheck, Calendar, User, Dumbbell } from 'lucide-react'
 import { AssignProgramForm } from './assign-program-form'
+import { StartWorkoutButton } from './start-workout-button'
 
 interface AthleteDetailPageProps {
   params: Promise<{ id: string }>
@@ -146,13 +147,12 @@ export default async function AthleteDetailPage({ params }: AthleteDetailPagePro
             hasActiveProgram={hasActiveProgram}
             pretestSessionId={latestPretest?.id}
           />
-          {activeProgram && (
-            <Button asChild className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 shadow-lg shadow-cyan-500/25">
-              <Link href="/workouts/new">
-                <Play className="mr-2 h-4 w-4" />
-                Start Workout
-              </Link>
-            </Button>
+          {activeProgram && activeProgram.programs && (
+            <StartWorkoutButton
+              athleteProgramId={activeProgram.id}
+              programId={activeProgram.programs.id}
+              currentWorkoutNumber={activeProgram.current_workout_number}
+            />
           )}
         </div>
       </div>

@@ -118,14 +118,18 @@ export async function completePretest(formData: FormData): Promise<void> {
     recoveryAtPercent = (recoveryHrNum / atHrNum) * 100
   }
 
-  // Determine metabolic category based on recovery percentage
+  // Determine metabolic category based on AT/Max percentage
+  // < 88% = High Lactic Acid (_la)
+  // 88-93% = Standard (_standard)
+  // >= 94% = Low Metabolic Need (_low)
   let metabolicCategory: string | null = 'standard'
-  if (recoveryAtPercent !== null) {
-    if (recoveryAtPercent > 85) {
-      metabolicCategory = 'la' // High lactate acid, needs more conditioning
-    } else if (recoveryAtPercent < 70) {
-      metabolicCategory = 'low'
+  if (atMaxPercent !== null) {
+    if (atMaxPercent < 88) {
+      metabolicCategory = 'la' // High lactic acid, needs more conditioning
+    } else if (atMaxPercent >= 94) {
+      metabolicCategory = 'low' // Low metabolic need
     }
+    // 88-93% stays as 'standard'
   } else {
     metabolicCategory = null // Don't set if we can't calculate
   }
@@ -227,12 +231,15 @@ export async function updateMetabolicResults(formData: FormData) {
     recoveryAtPercent = (recoveryHrNum / atHrNum) * 100
   }
 
-  // Determine metabolic category
+  // Determine metabolic category based on AT/Max percentage
+  // < 88% = High Lactic Acid (_la)
+  // 88-93% = Standard (_standard)  
+  // >= 94% = Low Metabolic Need (_low)
   let metabolicCategory: string | null = 'standard'
-  if (recoveryAtPercent !== null) {
-    if (recoveryAtPercent > 85) {
+  if (atMaxPercent !== null) {
+    if (atMaxPercent < 88) {
       metabolicCategory = 'la'
-    } else if (recoveryAtPercent < 70) {
+    } else if (atMaxPercent >= 94) {
       metabolicCategory = 'low'
     }
   } else {

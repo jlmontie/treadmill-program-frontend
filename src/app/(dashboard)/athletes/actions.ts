@@ -11,6 +11,8 @@ const AthleteSchema = z.object({
   sport: z.string().optional().nullable(),
   position: z.string().optional().nullable(),
   birth_date: z.string().optional().nullable(),
+  head_size: z.enum(['small', 'medium', 'large']).optional().nullable(),
+  chest_size: z.enum(['small', 'medium', 'large']).optional().nullable(),
   notes: z.string().optional().nullable(),
 })
 
@@ -21,6 +23,8 @@ export type AthleteFormState = {
     sport?: string[]
     position?: string[]
     birth_date?: string[]
+    head_size?: string[]
+    chest_size?: string[]
     notes?: string[]
     _form?: string[]
   }
@@ -39,6 +43,8 @@ export async function createAthlete(
     sport: formData.get('sport') || null,
     position: formData.get('position') || null,
     birth_date: formData.get('birth_date') || null,
+    head_size: formData.get('head_size') || null,
+    chest_size: formData.get('chest_size') || null,
     notes: formData.get('notes') || null,
   })
 
@@ -82,6 +88,8 @@ export async function updateAthlete(
     sport: formData.get('sport') || null,
     position: formData.get('position') || null,
     birth_date: formData.get('birth_date') || null,
+    head_size: formData.get('head_size') || null,
+    chest_size: formData.get('chest_size') || null,
     notes: formData.get('notes') || null,
   })
 
@@ -137,6 +145,8 @@ export async function assignProgram(formData: FormData) {
   const programId = formData.get('program_id') as string
   const pretestSessionId = formData.get('pretest_session_id') as string | null
   const notes = formData.get('notes') as string | null
+  // Default to true (use HR monitoring). If no metabolic results, this can be set to false.
+  const useHrMonitoring = formData.get('use_hr_monitoring') !== 'false'
 
   if (!athleteId || !programId) {
     return { error: 'Athlete and program are required' }
@@ -197,6 +207,7 @@ export async function assignProgram(formData: FormData) {
       pretest_session_id: pretestSessionId || null,
       status: 'active',
       current_workout_number: firstWorkoutNumber,
+      use_hr_monitoring: useHrMonitoring,
       notes: notes || null,
     })
 
@@ -245,4 +256,78 @@ export async function updateProgramStatus(
   }
   revalidatePath('/workouts/new')
   return { success: true }
+}
+
+/**
+ * Start a workout directly for an athlete (from their profile page)
+ */
+export async function startWorkoutForAthlete(
+  athleteProgramId: string,
+  programId: number,
+  currentWorkoutNumber: number
+) {
+  const supabase = await createClient()
+
+  // Get current trainer
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { error: 'Not authenticated' }
+  }
+
+  const { data: trainer } = await supabase
+    .from('trainers')
+    .select('id')
+    .eq('auth_user_id', user.id)
+    .single() as { data: { id: string } | null }
+
+  if (!trainer) {
+    return { error: 'Trainer profile not found' }
+  }
+
+  // Check if there's already an in-progress session for this athlete program
+  const { data: existingSession } = await supabase
+    .from('workout_sessions')
+    .select('id')
+    .eq('athlete_program_id', athleteProgramId)
+    .eq('status', 'in_progress')
+    .single() as { data: { id: string } | null }
+
+  if (existingSession) {
+    // Resume existing session
+    redirect(`/workouts/session/${existingSession.id}`)
+  }
+
+  // Get the program workout for the current workout number
+  const { data: programWorkout } = await supabase
+    .from('program_workouts')
+    .select('id')
+    .eq('program_id', programId)
+    .eq('workout_number', currentWorkoutNumber)
+    .single() as { data: { id: number } | null }
+
+  if (!programWorkout) {
+    return { error: `Workout #${currentWorkoutNumber} not found for this program` }
+  }
+
+  // Create the workout session
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: session, error } = await (supabase as any)
+    .from('workout_sessions')
+    .insert({
+      athlete_program_id: athleteProgramId,
+      program_workout_id: programWorkout.id,
+      trainer_id: trainer.id,
+      status: 'in_progress',
+      started_at: new Date().toISOString(),
+    })
+    .select()
+    .single()
+
+  if (error || !session) {
+    return { error: error?.message || 'Failed to create workout session' }
+  }
+
+  revalidatePath('/workouts')
+  revalidatePath(`/athletes`)
+  redirect(`/workouts/session/${session.id}`)
 }

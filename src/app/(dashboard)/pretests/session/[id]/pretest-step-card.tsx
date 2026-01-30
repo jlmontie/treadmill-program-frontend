@@ -4,16 +4,17 @@ import { useState, useTransition } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { Check, AlertTriangle, ThumbsUp, X, Loader2 } from 'lucide-react'
+import { Check, AlertTriangle, ThumbsUp, X, Loader2, GitBranch } from 'lucide-react'
 import { recordStepResult } from '../../actions'
 import { useRouter } from 'next/navigation'
 
 interface PretestStep {
   id: number
   step_number: number
-  incline: number
-  speed: number
-  time_pattern: string
+  num_runs?: number
+  incline: number | null
+  speed: number | null
+  time_pattern: string | null
   gate_instruction: string | null
 }
 
@@ -21,6 +22,7 @@ interface PretestStepCardProps {
   sessionId: string
   step: PretestStep
   isCurrentStep?: boolean
+  isGateStep?: boolean
 }
 
 const COMPLETION_LEVELS = [
@@ -58,7 +60,7 @@ const COMPLETION_LEVELS = [
   },
 ]
 
-export function PretestStepCard({ sessionId, step, isCurrentStep }: PretestStepCardProps) {
+export function PretestStepCard({ sessionId, step, isCurrentStep, isGateStep }: PretestStepCardProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [selectedLevel, setSelectedLevel] = useState<string | null>(null)
@@ -82,8 +84,63 @@ export function PretestStepCard({ sessionId, step, isCurrentStep }: PretestStepC
     })
   }
 
+  // Get gate step branching info
+  const getGateInfo = (stepNum: number) => {
+    switch (stepNum) {
+      case 6:
+        return {
+          passPath: 'Continue to Step 7',
+          failPath: 'Skip to Steps 10 & 11 → Developmental Program',
+        }
+      case 7:
+        return {
+          passPath: 'Continue to Step 8',
+          failPath: 'Go to Step 12 for further assessment',
+        }
+      case 8:
+        return {
+          passPath: 'Advanced/Elite Program',
+          failPath: 'Go to Step 13 for further assessment',
+        }
+      case 12:
+        return {
+          passPath: 'Reduced Speed / Level II Program',
+          failPath: 'Developmental Program (Steps 10 & 11)',
+        }
+      case 13:
+        return {
+          passPath: 'Standard / Level III Program',
+          failPath: 'Go to Step 12 for assessment',
+        }
+      default:
+        return null
+    }
+  }
+
+  const gateInfo = isGateStep ? getGateInfo(step.step_number) : null
+
   return (
     <div className="space-y-4">
+      {/* Gate Step Branching Info */}
+      {gateInfo && (
+        <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/30 mb-4">
+          <div className="flex items-center gap-2 mb-3">
+            <GitBranch className="h-4 w-4 text-amber-400" />
+            <span className="text-amber-400 font-medium">Gate Step - Result affects test path</span>
+          </div>
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="p-2 rounded bg-emerald-500/10 border border-emerald-500/20">
+              <span className="text-emerald-400 font-medium">Pass:</span>
+              <p className="text-slate-300 mt-1">{gateInfo.passPath}</p>
+            </div>
+            <div className="p-2 rounded bg-red-500/10 border border-red-500/20">
+              <span className="text-red-400 font-medium">Fail:</span>
+              <p className="text-slate-300 mt-1">{gateInfo.failPath}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Completion Level Buttons */}
       <div className="space-y-2">
         <Label className="text-slate-300">Completion Level</Label>
