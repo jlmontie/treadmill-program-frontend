@@ -5,6 +5,15 @@ import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { toast } from 'sonner'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { 
   ChevronDown, 
   ChevronUp, 
@@ -68,6 +77,7 @@ export function AthleteWorkoutCard({ workout, colorIndex, onRefresh }: AthleteWo
   const [selectedSpeed, setSelectedSpeed] = useState<1 | 2 | 3>(2)
   const [isLogging, setIsLogging] = useState(false)
   const [isCanceling, setIsCanceling] = useState(false)
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
   const [elapsedTime, setElapsedTime] = useState('0:00')
   const supabase = createClient()
   const colors = CARD_COLORS[colorIndex % CARD_COLORS.length]
@@ -142,23 +152,30 @@ export function AthleteWorkoutCard({ workout, colorIndex, onRefresh }: AthleteWo
     }
   }
 
-  const handleCancel = async () => {
+  const handleCancelConfirm = async () => {
     if (isCanceling) return
     
-    if (!confirm(`Cancel ${workout.athlete_name}'s workout? This will discard all progress.`)) {
-      return
-    }
-
     setIsCanceling(true)
     try {
       const result = await cancelGroupWorkout(workout.id)
       if (result.success) {
+        toast.success('Workout cancelled', {
+          description: `${workout.athlete_name}'s workout has been cancelled.`,
+        })
         onRefresh()
+        setCancelDialogOpen(false)
+      } else {
+        toast.error('Failed to cancel workout', {
+          description: result.error,
+        })
       }
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
         console.error('Failed to cancel workout:', error)
       }
+      toast.error('Failed to cancel workout', {
+        description: 'An unexpected error occurred. Please try again.',
+      })
     } finally {
       setIsCanceling(false)
     }
@@ -425,20 +442,60 @@ export function AthleteWorkoutCard({ workout, colorIndex, onRefresh }: AthleteWo
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={handleCancel}
-              disabled={isCanceling}
+              onClick={() => setCancelDialogOpen(true)}
               className="border-red-500/30 text-red-400 hover:bg-red-500/10 ml-auto"
             >
-              {isCanceling ? (
-                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-              ) : (
-                <XCircle className="h-4 w-4 mr-1" />
-              )}
+              <XCircle className="h-4 w-4 mr-1" />
               Cancel
             </Button>
           </div>
         </CardContent>
       )}
+
+      {/* Cancel Confirmation Dialog */}
+      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <DialogContent className="bg-slate-900 border-slate-800">
+          <DialogHeader>
+            <DialogTitle className="text-white">Cancel Workout?</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Are you sure you want to cancel {workout.athlete_name}&apos;s workout? 
+              {workout.completed_exercises > 0 && (
+                <span className="block mt-2 text-amber-400">
+                  This will discard {workout.completed_exercises} completed exercise{workout.completed_exercises !== 1 ? 's' : ''}.
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setCancelDialogOpen(false)}
+              className="border-slate-700 text-slate-300 hover:bg-slate-800"
+            >
+              Keep Workout
+            </Button>
+            <Button
+              onClick={handleCancelConfirm}
+              disabled={isCanceling}
+              aria-busy={isCanceling}
+              className="bg-red-600 hover:bg-red-500 text-white"
+            >
+              {isCanceling && <span className="sr-only">Canceling workout, please wait</span>}
+              {isCanceling ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Canceling...
+                </>
+              ) : (
+                <>
+                  <XCircle className="mr-2 h-4 w-4" />
+                  Cancel Workout
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }

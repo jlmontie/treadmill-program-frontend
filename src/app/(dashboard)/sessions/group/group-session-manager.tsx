@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { toast } from 'sonner'
 import { 
   Dialog, 
   DialogContent, 
@@ -231,7 +232,16 @@ export function GroupSessionManager({ activeWorkouts: initialWorkouts, available
         if (process.env.NODE_ENV === 'development') {
           console.error('Errors starting workouts:', errors)
         }
-        alert(`Some workouts failed to start:\n${errors.join('\n')}`)
+        toast.error('Some workouts failed to start', {
+          description: errors.length > 1 ? (
+            <ul className="list-disc list-inside mt-2 space-y-1">
+              {errors.map((error, i) => (
+                <li key={i}>{error}</li>
+              ))}
+            </ul>
+          ) : errors[0],
+          duration: 10000, // Longer duration for multiple errors
+        })
       }
       
       // Refresh data multiple ways to ensure UI updates
@@ -242,7 +252,9 @@ export function GroupSessionManager({ activeWorkouts: initialWorkouts, available
       if (process.env.NODE_ENV === 'development') {
         console.error('Failed to start workouts:', error)
       }
-      alert('Failed to start workouts. Please try again.')
+      toast.error('Failed to start workouts', {
+        description: 'Please try again or contact support if the problem persists.',
+      })
     } finally {
       setIsStartingWorkouts(false)
     }
