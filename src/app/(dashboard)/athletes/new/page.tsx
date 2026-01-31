@@ -1,6 +1,5 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useForm, type FieldValues } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -22,7 +21,6 @@ import { createAthlete } from '../actions'
 import { newAthleteFormSchema, type NewAthleteFormValues } from '@/lib/validations/forms'
 
 export default function NewAthletePage() {
-  const router = useRouter()
 
   const form = useForm({
     resolver: zodResolver(newAthleteFormSchema),
@@ -51,19 +49,21 @@ export default function NewAthletePage() {
     if (values.chest_size) formData.set('chest_size', values.chest_size)
     if (values.notes) formData.set('notes', values.notes)
 
-    const result = await createAthlete({}, formData)
+    const result = await createAthlete(formData)
     
-    if (result.errors?._form) {
-      form.setError('root', { message: result.errors._form.join(', ') })
-    } else if (result.errors) {
-      // Set field-level errors
-      Object.entries(result.errors).forEach(([field, messages]) => {
-        if (field !== '_form' && messages) {
-          form.setError(field as keyof NewAthleteFormValues, { 
-            message: messages.join(', ') 
-          })
-        }
-      })
+    if (!result.success) {
+      // Set field-level errors if available
+      if (result.fieldErrors) {
+        Object.entries(result.fieldErrors).forEach(([field, messages]) => {
+          if (messages) {
+            form.setError(field as keyof NewAthleteFormValues, { 
+              message: messages.join(', ') 
+            })
+          }
+        })
+      }
+      // Set general error message
+      form.setError('root', { message: result.error })
     }
     // Note: createAthlete redirects on success, so no explicit navigation needed
   }

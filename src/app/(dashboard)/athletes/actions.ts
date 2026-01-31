@@ -1,6 +1,5 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
 import { withAuth, withAuthRateLimited } from '@/lib/supabase/auth'
 import { upsertMetabolicResults } from '@/lib/supabase/metabolic'
 import { revalidatePath } from 'next/cache'
@@ -37,34 +36,20 @@ const MetabolicTestSchema = z.object({
   notes: z.string().max(1000).transform(s => s.trim()).optional().nullable(),
 })
 
-export type AthleteFormState = {
-  errors?: {
-    name?: string[]
-    gender?: string[]
-    sport?: string[]
-    position?: string[]
-    birth_date?: string[]
-    head_size?: string[]
-    chest_size?: string[]
-    notes?: string[]
-    _form?: string[]
-  }
-  success?: boolean
-}
-
+/**
+ * Create a new athlete
+ * Rate limited: 30 requests per minute
+ */
 export async function createAthlete(
-  prevState: AthleteFormState,
   formData: FormData
-): Promise<AthleteFormState> {
-  const supabase = await createClient()
+): Promise<ActionResult<string>> {
+  // Authenticate and get trainer with rate limiting
+  const authResult = await withAuthRateLimited()
+  if (!authResult.success) return authResult
+  const { supabase } = authResult.data
 
-  // Verify authentication
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return { errors: { _form: ['You must be logged in to create athletes'] } }
-  }
-
-  const validatedFields = AthleteSchema.safeParse({
+  // Validate input
+  const validated = AthleteSchema.safeParse({
     name: formData.get('name'),
     gender: formData.get('gender'),
     sport: formData.get('sport') || null,
@@ -75,51 +60,50 @@ export async function createAthlete(
     notes: formData.get('notes') || null,
   })
 
-  if (!validatedFields.success) {
-    return {
-      errors: validatedFields.error.flatten().fieldErrors,
-    }
+  if (!validated.success) {
+    const errors = validated.error.flatten()
+    const firstError = Object.values(errors.fieldErrors).flat()[0] || 'Invalid input'
+    return failure(firstError, errors.fieldErrors)
   }
 
+  // Insert athlete
   const { data, error } = await supabase
     .from('athletes')
-    .insert(validatedFields.data)
-    .select()
+    .insert(validated.data)
+    .select('id')
     .single()
 
   if (error) {
-    return {
-      errors: {
-        _form: [error.message],
-      },
-    }
+    return failure('Failed to create athlete: ' + error.message)
   }
 
   revalidatePath('/athletes')
+  revalidatePath(`/athletes/${data.id}`)
   redirect(`/athletes/${data.id}`)
 }
 
+/**
+ * Update an existing athlete
+ * Rate limited: 30 requests per minute
+ */
 export async function updateAthlete(
   athleteId: string,
-  prevState: AthleteFormState,
   formData: FormData
-): Promise<AthleteFormState> {
-  const supabase = await createClient()
+): Promise<ActionResult<void>> {
+  // Authenticate and get trainer with rate limiting
+  const authResult = await withAuthRateLimited()
+  if (!authResult.success) return authResult
+  const { supabase } = authResult.data
 
-  // Verify authentication
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return { errors: { _form: ['You must be logged in to update athletes'] } }
-  }
-
-  // Validate athleteId is a valid UUID
+  // Validate athleteId
   const uuidSchema = z.string().uuid('Invalid athlete ID')
   const athleteIdResult = uuidSchema.safeParse(athleteId)
   if (!athleteIdResult.success) {
-    return { errors: { _form: ['Invalid athlete ID'] } }
+    return failure('Invalid athlete ID')
   }
 
-  const validatedFields = AthleteSchema.safeParse({
+  // Validate input
+  const validated = AthleteSchema.safeParse({
     name: formData.get('name'),
     gender: formData.get('gender'),
     sport: formData.get('sport') || null,
@@ -130,23 +114,20 @@ export async function updateAthlete(
     notes: formData.get('notes') || null,
   })
 
-  if (!validatedFields.success) {
-    return {
-      errors: validatedFields.error.flatten().fieldErrors,
-    }
+  if (!validated.success) {
+    const errors = validated.error.flatten()
+    const firstError = Object.values(errors.fieldErrors).flat()[0] || 'Invalid input'
+    return failure(firstError, errors.fieldErrors)
   }
 
+  // Update athlete
   const { error } = await supabase
     .from('athletes')
-    .update(validatedFields.data)
+    .update(validated.data)
     .eq('id', athleteId)
 
   if (error) {
-    return {
-      errors: {
-        _form: [error.message],
-      },
-    }
+    return failure('Failed to update athlete: ' + error.message)
   }
 
   revalidatePath('/athletes')
@@ -154,29 +135,31 @@ export async function updateAthlete(
   redirect(`/athletes/${athleteId}`)
 }
 
+/**
+ * Delete an athlete
+ * Rate limited: 30 requests per minute
+ */
 export async function deleteAthlete(athleteId: string): Promise<ActionResult<void>> {
-  const supabase = await createClient()
+  // Authenticate and get trainer with rate limiting
+  const authResult = await withAuthRateLimited()
+  if (!authResult.success) return authResult
+  const { supabase } = authResult.data
 
-  // Verify authentication
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return failure('You must be logged in to delete athletes')
-  }
-
-  // Validate athleteId is a valid UUID
+  // Validate athleteId
   const uuidSchema = z.string().uuid('Invalid athlete ID')
   const athleteIdResult = uuidSchema.safeParse(athleteId)
   if (!athleteIdResult.success) {
     return failure('Invalid athlete ID')
   }
 
+  // Delete athlete
   const { error } = await supabase
     .from('athletes')
     .delete()
     .eq('id', athleteId)
 
   if (error) {
-    return failure(error.message)
+    return failure('Failed to delete athlete: ' + error.message)
   }
 
   revalidatePath('/athletes')
@@ -237,18 +220,16 @@ export async function assignProgram(formData: FormData): Promise<ActionResult<vo
 
 /**
  * Update athlete program status
+ * Rate limited: 30 requests per minute
  */
 export async function updateProgramStatus(
   athleteProgramId: string,
   status: 'active' | 'paused' | 'completed' | 'cancelled'
 ): Promise<ActionResult<void>> {
-  const supabase = await createClient()
-
-  // Verify authentication
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return failure('You must be logged in to update program status')
-  }
+  // Authenticate and get trainer with rate limiting
+  const authResult = await withAuthRateLimited()
+  if (!authResult.success) return authResult
+  const { supabase } = authResult.data
 
   // Validate athleteProgramId
   const uuidSchema = z.string().uuid('Invalid athlete program ID')
@@ -271,6 +252,7 @@ export async function updateProgramStatus(
     .eq('id', athleteProgramId)
     .single()
 
+  // Update program status
   const { error } = await supabase
     .from('athlete_programs')
     .update({ 
@@ -282,7 +264,7 @@ export async function updateProgramStatus(
     .eq('id', athleteProgramId)
 
   if (error) {
-    return failure(error.message)
+    return failure('Failed to update program status: ' + error.message)
   }
 
   if (program) {

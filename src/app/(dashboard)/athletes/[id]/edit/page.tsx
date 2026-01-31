@@ -1,8 +1,8 @@
 'use client'
 
-import { useActionState, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { updateAthlete, deleteAthlete, type AthleteFormState } from '../../actions'
+import { updateAthlete, deleteAthlete } from '../../actions'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -20,19 +20,17 @@ import {
 } from '@/components/ui/dialog'
 import Link from 'next/link'
 import { ArrowLeft, Loader2, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
 import type { Athlete } from '@/lib/types/database'
-
-const initialState: AthleteFormState = {}
 
 export default function EditAthletePage() {
   const params = useParams()
   const athleteId = params.id as string
   const [athlete, setAthlete] = useState<Athlete | null>(null)
   const [loading, setLoading] = useState(true)
+  const [updateLoading, setUpdateLoading] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
-  
-  const updateAthleteWithId = updateAthlete.bind(null, athleteId)
-  const [state, formAction, isPending] = useActionState(updateAthleteWithId, initialState)
+  const [errors, setErrors] = useState<Record<string, string[]>>({})
 
   useEffect(() => {
     async function fetchAthlete() {
@@ -52,13 +50,32 @@ export default function EditAthletePage() {
     fetchAthlete()
   }, [athleteId])
 
+  async function handleUpdate(formData: FormData) {
+    setUpdateLoading(true)
+    setErrors({})
+    
+    const result = await updateAthlete(athleteId, formData)
+    
+    if (!result.success) {
+      setUpdateLoading(false)
+      if (result.fieldErrors) {
+        setErrors(result.fieldErrors)
+      }
+      toast.error(result.error)
+    }
+    // Note: updateAthlete redirects on success
+  }
+
   async function handleDelete() {
     setDeleteLoading(true)
-    try {
-      await deleteAthlete(athleteId)
-    } catch {
+    
+    const result = await deleteAthlete(athleteId)
+    
+    if (!result.success) {
       setDeleteLoading(false)
+      toast.error(result.error)
     }
+    // Note: deleteAthlete redirects on success
   }
 
   if (loading) {
@@ -103,12 +120,7 @@ export default function EditAthletePage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={formAction} className="space-y-6">
-            {state.errors?._form && (
-              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-                {state.errors._form.join(', ')}
-              </div>
-            )}
+          <form action={handleUpdate} className="space-y-6">
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
@@ -122,8 +134,8 @@ export default function EditAthletePage() {
                   placeholder="John Smith"
                   className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500"
                 />
-                {state.errors?.name && (
-                  <p className="text-sm text-red-400">{state.errors.name.join(', ')}</p>
+                {errors.name && (
+                  <p className="text-sm text-red-400">{errors.name.join(', ')}</p>
                 )}
               </div>
 
@@ -140,8 +152,8 @@ export default function EditAthletePage() {
                     <SelectItem value="female" className="text-white focus:bg-slate-800">Female</SelectItem>
                   </SelectContent>
                 </Select>
-                {state.errors?.gender && (
-                  <p className="text-sm text-red-400">{state.errors.gender.join(', ')}</p>
+                {errors.gender && (
+                  <p className="text-sm text-red-400">{errors.gender.join(', ')}</p>
                 )}
               </div>
             </div>
@@ -197,8 +209,8 @@ export default function EditAthletePage() {
                     <SelectItem value="large" className="text-white focus:bg-slate-800">Large</SelectItem>
                   </SelectContent>
                 </Select>
-                {state.errors?.head_size && (
-                  <p className="text-sm text-red-400">{state.errors.head_size.join(', ')}</p>
+                {errors.head_size && (
+                  <p className="text-sm text-red-400">{errors.head_size.join(', ')}</p>
                 )}
               </div>
 
@@ -216,8 +228,8 @@ export default function EditAthletePage() {
                     <SelectItem value="large" className="text-white focus:bg-slate-800">Large</SelectItem>
                   </SelectContent>
                 </Select>
-                {state.errors?.chest_size && (
-                  <p className="text-sm text-red-400">{state.errors.chest_size.join(', ')}</p>
+                {errors.chest_size && (
+                  <p className="text-sm text-red-400">{errors.chest_size.join(', ')}</p>
                 )}
               </div>
             </div>
@@ -237,10 +249,10 @@ export default function EditAthletePage() {
             <div className="flex gap-3 pt-4">
               <Button
                 type="submit"
-                disabled={isPending}
+                disabled={updateLoading}
                 className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 shadow-lg shadow-cyan-500/25"
               >
-                {isPending ? (
+                {updateLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Saving...
