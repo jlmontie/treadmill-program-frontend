@@ -180,7 +180,9 @@ export async function completeWorkout(sessionId: string, sessionNotes?: string):
     })
 
     if (incrementError) {
-      console.error('Failed to increment workout number:', incrementError)
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to increment workout number:', incrementError)
+      }
       // Continue anyway - workout is already marked complete
     }
   }
