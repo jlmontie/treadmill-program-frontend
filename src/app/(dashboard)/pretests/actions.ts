@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { calculateMetabolicData } from '@/lib/metabolic'
 
 /**
  * Start a new pre-test session
@@ -102,37 +103,16 @@ export async function completePretest(formData: FormData): Promise<void> {
     redirect('/pretests')
   }
 
-  // Calculate percentages
+  // Calculate percentages using centralized utility
   const atHrNum = atHr ? parseInt(atHr) : null
   const maxHrNum = maxHr ? parseInt(maxHr) : null
   const recoveryHrNum = recoveryHr ? parseInt(recoveryHr) : null
 
-  let atMaxPercent = null
-  let recoveryAtPercent = null
-
-  if (atHrNum && maxHrNum) {
-    atMaxPercent = (atHrNum / maxHrNum) * 100
-  }
-
-  if (recoveryHrNum && atHrNum) {
-    recoveryAtPercent = (recoveryHrNum / atHrNum) * 100
-  }
-
-  // Determine metabolic category based on AT/Max percentage
-  // < 88% = High Lactic Acid (_la)
-  // 88-93% = Standard (_standard)
-  // >= 94% = Low Metabolic Need (_low)
-  let metabolicCategory: string | null = 'standard'
-  if (atMaxPercent !== null) {
-    if (atMaxPercent < 88) {
-      metabolicCategory = 'la' // High lactic acid, needs more conditioning
-    } else if (atMaxPercent >= 94) {
-      metabolicCategory = 'low' // Low metabolic need
-    }
-    // 88-93% stays as 'standard'
-  } else {
-    metabolicCategory = null // Don't set if we can't calculate
-  }
+  const { atMaxPercent, recoveryAtPercent, metabolicCategory, recoveryHr: calculatedRecoveryHr } = calculateMetabolicData({
+    atHr: atHrNum,
+    maxHr: maxHrNum,
+    recoveryHr2min: recoveryHrNum
+  })
 
   // Check if metabolic results already exist (for editing)
   const { data: existingMetabolic } = await supabase
@@ -152,6 +132,7 @@ export async function completePretest(formData: FormData): Promise<void> {
         at_max_percent: atMaxPercent,
         recovery_hr_2min: recoveryHrNum,
         recovery_at_percent: recoveryAtPercent,
+        recovery_hr: calculatedRecoveryHr,
         metabolic_category: metabolicCategory,
         notes: notes || null,
       })
@@ -173,6 +154,7 @@ export async function completePretest(formData: FormData): Promise<void> {
         at_max_percent: atMaxPercent,
         recovery_hr_2min: recoveryHrNum,
         recovery_at_percent: recoveryAtPercent,
+        recovery_hr: calculatedRecoveryHr,
         metabolic_category: metabolicCategory,
         notes: notes || null,
       })
@@ -215,36 +197,16 @@ export async function updateMetabolicResults(formData: FormData) {
     return { error: 'Session ID is required' }
   }
 
-  // Calculate percentages
+  // Calculate percentages using centralized utility
   const atHrNum = atHr ? parseInt(atHr) : null
   const maxHrNum = maxHr ? parseInt(maxHr) : null
   const recoveryHrNum = recoveryHr ? parseInt(recoveryHr) : null
 
-  let atMaxPercent = null
-  let recoveryAtPercent = null
-
-  if (atHrNum && maxHrNum) {
-    atMaxPercent = (atHrNum / maxHrNum) * 100
-  }
-
-  if (recoveryHrNum && atHrNum) {
-    recoveryAtPercent = (recoveryHrNum / atHrNum) * 100
-  }
-
-  // Determine metabolic category based on AT/Max percentage
-  // < 88% = High Lactic Acid (_la)
-  // 88-93% = Standard (_standard)  
-  // >= 94% = Low Metabolic Need (_low)
-  let metabolicCategory: string | null = 'standard'
-  if (atMaxPercent !== null) {
-    if (atMaxPercent < 88) {
-      metabolicCategory = 'la'
-    } else if (atMaxPercent >= 94) {
-      metabolicCategory = 'low'
-    }
-  } else {
-    metabolicCategory = null
-  }
+  const { atMaxPercent, recoveryAtPercent, metabolicCategory, recoveryHr: calculatedRecoveryHr } = calculateMetabolicData({
+    atHr: atHrNum,
+    maxHr: maxHrNum,
+    recoveryHr2min: recoveryHrNum
+  })
 
   // Check if metabolic results exist
   const { data: existingMetabolic } = await supabase
@@ -264,6 +226,7 @@ export async function updateMetabolicResults(formData: FormData) {
         at_max_percent: atMaxPercent,
         recovery_hr_2min: recoveryHrNum,
         recovery_at_percent: recoveryAtPercent,
+        recovery_hr: calculatedRecoveryHr,
         metabolic_category: metabolicCategory,
         notes: notes || null,
       })
@@ -284,6 +247,7 @@ export async function updateMetabolicResults(formData: FormData) {
         at_max_percent: atMaxPercent,
         recovery_hr_2min: recoveryHrNum,
         recovery_at_percent: recoveryAtPercent,
+        recovery_hr: calculatedRecoveryHr,
         metabolic_category: metabolicCategory,
         notes: notes || null,
       })
