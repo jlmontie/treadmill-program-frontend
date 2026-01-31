@@ -196,20 +196,16 @@ export async function logExerciseResult({
         })
         .eq('id', workoutSessionId)
 
-      // Get current workout number and advance it
-      const { data: athleteProgram } = await supabase
-        .from('athlete_programs')
-        .select('current_workout_number')
-        .eq('id', typedSession.athlete_program_id)
-        .single()
+      // Atomically increment the workout number using RPC function
+      // This prevents race conditions in concurrent workout completions
+      const { error: incrementError } = await supabase.rpc('increment_workout_number', {
+        p_athlete_program_id: typedSession.athlete_program_id,
+        p_session_id: workoutSessionId
+      })
 
-      if (athleteProgram) {
-        await supabase
-          .from('athlete_programs')
-          .update({ 
-            current_workout_number: (athleteProgram.current_workout_number || 2) + 1 
-          })
-          .eq('id', typedSession.athlete_program_id)
+      if (incrementError) {
+        console.error('Failed to increment workout number:', incrementError)
+        // Continue anyway - workout is already marked complete
       }
     }
   }

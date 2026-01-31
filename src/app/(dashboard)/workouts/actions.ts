@@ -164,27 +164,24 @@ export async function completeWorkout(sessionId: string, sessionNotes?: string):
       redirect(`/workouts/session/${sessionId}?error=complete_failed`)
     }
 
-    // Get the athlete program to update current workout number
+    // Atomically increment the workout number using RPC function
+    // This prevents race conditions in concurrent workout completions
     const { data: session } = await supabase
       .from('workout_sessions')
-      .select('athlete_program_id, program_workout_id')
+      .select('athlete_program_id')
       .eq('id', sessionId)
       .single()
 
     if (session) {
-      // Get the workout number
-      const { data: workout } = await supabase
-        .from('program_workouts')
-        .select('workout_number')
-        .eq('id', session.program_workout_id)
-        .single()
+      // Use atomic RPC function to increment workout number
+      const { error: incrementError } = await supabase.rpc('increment_workout_number', {
+        p_athlete_program_id: session.athlete_program_id,
+        p_session_id: sessionId
+      })
 
-      if (workout) {
-        // Update athlete program's current workout number
-        await supabase
-          .from('athlete_programs')
-          .update({ current_workout_number: workout.workout_number + 1 })
-          .eq('id', session.athlete_program_id)
+      if (incrementError) {
+        console.error('Failed to increment workout number:', incrementError)
+        // Continue anyway - workout is already marked complete
       }
     }
 

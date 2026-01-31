@@ -5,6 +5,7 @@
  * athlete-training-database/supabase/migrations/001_initial_schema.sql
  * athlete-training-database/supabase/migrations/003_schema_updates_v2.sql
  * athlete-training-database/supabase/migrations/004_assign_program_rpc.sql
+ * athlete-training-database/supabase/migrations/005_increment_workout_rpc.sql
  * 
  * To regenerate from live database (when Supabase CLI connection is available):
  * npx supabase gen types typescript --project-id gsrtyjlsdnmocrdjeypw > src/lib/types/database.ts
@@ -660,6 +661,13 @@ export type Database = {
         Args: {
           p_recovery_at_percent: number
           p_max_hr: number
+        }
+        Returns: number
+      }
+      increment_workout_number: {
+        Args: {
+          p_athlete_program_id: string
+          p_session_id: string
         }
         Returns: number
       }
