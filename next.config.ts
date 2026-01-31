@@ -1,4 +1,10 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next'
+import bundleAnalyzer from '@next/bundle-analyzer'
+
+// Bundle analyzer (run with ANALYZE=true npm run build)
+const withBundleAnalyzer = bundleAnalyzer({
+  enabled: process.env.ANALYZE === 'true',
+})
 
 const nextConfig: NextConfig = {
   // Note: typedRoutes requires route type generation and Link component updates
@@ -45,10 +51,14 @@ const nextConfig: NextConfig = {
           ].join('; '),
         },
         // HSTS - Force HTTPS in production only
-        ...(process.env.NODE_ENV === 'production' ? [{
-          key: 'Strict-Transport-Security',
-          value: 'max-age=31536000; includeSubDomains; preload',
-        }] : []),
+        ...(process.env.NODE_ENV === 'production'
+          ? [
+              {
+                key: 'Strict-Transport-Security',
+                value: 'max-age=31536000; includeSubDomains; preload',
+              },
+            ]
+          : []),
       ],
     },
   ],
@@ -59,6 +69,6 @@ const nextConfig: NextConfig = {
       fullUrl: process.env.NODE_ENV === 'development',
     },
   },
-};
+}
 
-export default nextConfig;
+export default withBundleAnalyzer(nextConfig)
