@@ -135,7 +135,9 @@ export default function EditAthletePage() {
                   className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500"
                 />
                 {errors.name && (
-                  <p className="text-sm text-red-400">{errors.name.join(', ')}</p>
+                  <p className="text-sm text-red-400" role="alert" aria-live="assertive">
+                    {errors.name.join(', ')}
+                  </p>
                 )}
               </div>
 
@@ -153,7 +155,9 @@ export default function EditAthletePage() {
                   </SelectContent>
                 </Select>
                 {errors.gender && (
-                  <p className="text-sm text-red-400">{errors.gender.join(', ')}</p>
+                  <p className="text-sm text-red-400" role="alert" aria-live="assertive">
+                    {errors.gender.join(', ')}
+                  </p>
                 )}
               </div>
             </div>
@@ -210,7 +214,9 @@ export default function EditAthletePage() {
                   </SelectContent>
                 </Select>
                 {errors.head_size && (
-                  <p className="text-sm text-red-400">{errors.head_size.join(', ')}</p>
+                  <p className="text-sm text-red-400" role="alert" aria-live="assertive">
+                    {errors.head_size.join(', ')}
+                  </p>
                 )}
               </div>
 
@@ -229,7 +235,9 @@ export default function EditAthletePage() {
                   </SelectContent>
                 </Select>
                 {errors.chest_size && (
-                  <p className="text-sm text-red-400">{errors.chest_size.join(', ')}</p>
+                  <p className="text-sm text-red-400" role="alert" aria-live="assertive">
+                    {errors.chest_size.join(', ')}
+                  </p>
                 )}
               </div>
             </div>
@@ -250,8 +258,10 @@ export default function EditAthletePage() {
               <Button
                 type="submit"
                 disabled={updateLoading}
+                aria-busy={updateLoading}
                 className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 shadow-lg shadow-cyan-500/25"
               >
+                {updateLoading && <span className="sr-only">Saving changes, please wait</span>}
                 {updateLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -301,8 +311,10 @@ export default function EditAthletePage() {
                   variant="destructive" 
                   onClick={handleDelete}
                   disabled={deleteLoading}
+                  aria-busy={deleteLoading}
                   className="bg-red-600 hover:bg-red-700"
                 >
+                  {deleteLoading && <span className="sr-only">Deleting athlete, please wait</span>}
                   {deleteLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />

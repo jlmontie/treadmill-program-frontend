@@ -228,6 +228,14 @@ export function AthleteWorkoutCard({ workout, colorIndex, onRefresh }: AthleteWo
                       <button
                         key={col}
                         onClick={() => setSelectedSpeed(col as 1 | 2 | 3)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            setSelectedSpeed(col as 1 | 2 | 3)
+                          }
+                        }}
+                        aria-pressed={selectedSpeed === col}
+                        aria-label={`Select speed column ${col}: ${speed} mph`}
                         className={`px-3 py-1 rounded-lg text-sm font-mono transition-all ${
                           selectedSpeed === col
                             ? `${colors.accent} bg-slate-800 ring-2 ${colors.ring}`
@@ -291,6 +299,14 @@ export function AthleteWorkoutCard({ workout, colorIndex, onRefresh }: AthleteWo
                   <button
                     key={col}
                     onClick={() => setSelectedSpeed(col as 1 | 2 | 3)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setSelectedSpeed(col as 1 | 2 | 3)
+                      }
+                    }}
+                    aria-pressed={selectedSpeed === col}
+                    aria-label={`Select speed column ${col}: ${speed} mph`}
                     className={`px-2 py-0.5 rounded-md text-sm font-mono transition-all ${
                       selectedSpeed === col
                         ? `${colors.accent} bg-slate-800 ring-2 ${colors.ring}`
