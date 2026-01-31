@@ -1,9 +1,20 @@
 /**
  * Simple in-memory rate limiting for server actions
  * 
- * Note: This is suitable for single-instance deployments.
- * For multi-instance deployments (e.g., serverless), consider using
- * Redis-based rate limiting or Vercel's built-in rate limiting.
+ * IMPORTANT: This implementation is suitable for:
+ * - Development and testing
+ * - Single-instance deployments (VPS, traditional hosting)
+ * - Applications with only authenticated/trusted users
+ * 
+ * LIMITATION: On serverless platforms (Vercel, Lambda), each instance has 
+ * separate memory, so rate limits are per-instance, not global. For a production
+ * app with untrusted users on Vercel, consider:
+ * - Vercel KV (Redis-compatible, free tier available)
+ * - Upstash Redis
+ * - Vercel's built-in edge middleware rate limiting
+ * 
+ * Current deployment: Vercel with authenticated users only
+ * Status: Acceptable for current use case (defense-in-depth against bugs/accidents)
  */
 
 interface RateLimitEntry {
