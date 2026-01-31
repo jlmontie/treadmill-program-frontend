@@ -86,6 +86,59 @@ src/
 └── middleware.ts            # Next.js middleware
 ```
 
+## Security
+
+This application implements multiple security layers to protect against common web vulnerabilities:
+
+### Security Headers
+
+All responses include comprehensive security headers configured in `next.config.ts`:
+
+- **Content-Security-Policy (CSP)**: Prevents XSS attacks by restricting resource sources
+  - Scripts, styles, and assets limited to trusted origins
+  - Supabase API (`https://*.supabase.co`) and WebSocket (`wss://*.supabase.co`) domains whitelisted
+  - Inline scripts/styles allowed only where required by Next.js and Tailwind CSS
+  
+- **Strict-Transport-Security (HSTS)**: Forces HTTPS in production
+  - 1-year duration with subdomain inclusion
+  - Preload-ready for browser HSTS preload lists
+  
+- **X-Frame-Options**: Prevents clickjacking attacks (`DENY`)
+
+- **X-Content-Type-Options**: Prevents MIME-sniffing attacks (`nosniff`)
+
+- **Referrer-Policy**: Controls referrer information (`strict-origin-when-cross-origin`)
+
+- **Permissions-Policy**: Disables unused browser features (camera, microphone, geolocation)
+
+### Authentication & Authorization
+
+- **Supabase Auth**: Secure session management with JWT tokens
+- **Row Level Security (RLS)**: Database-level access control
+- **Middleware Protection**: All dashboard routes require authentication
+- **Rate Limiting**: Server actions protected with in-memory rate limiting
+
+### Testing Security Headers
+
+During development, verify CSP compliance:
+
+```bash
+# Run dev server
+npm run dev
+
+# Open http://localhost:3000 in browser
+# Open DevTools Console
+# Check for CSP violation warnings (there should be none)
+```
+
+In production, verify headers are sent:
+
+```bash
+# Check headers
+curl -I https://your-domain.vercel.app | grep -i "content-security-policy"
+curl -I https://your-domain.vercel.app | grep -i "strict-transport-security"
+```
+
 ## Development
 
 ### Server Actions
