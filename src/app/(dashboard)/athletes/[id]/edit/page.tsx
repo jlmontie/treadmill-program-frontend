@@ -2,13 +2,23 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
+import { useForm, type FieldValues } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { updateAthlete, deleteAthlete } from '../../actions'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Dialog,
   DialogContent,
@@ -22,15 +32,30 @@ import Link from 'next/link'
 import { ArrowLeft, Loader2, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Athlete } from '@/lib/types/database'
+import { newAthleteFormSchema, type NewAthleteFormValues } from '@/lib/validations/forms'
 
 export default function EditAthletePage() {
   const params = useParams()
   const athleteId = params.id as string
   const [athlete, setAthlete] = useState<Athlete | null>(null)
   const [loading, setLoading] = useState(true)
-  const [updateLoading, setUpdateLoading] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
-  const [errors, setErrors] = useState<Record<string, string[]>>({})
+  
+  const form = useForm({
+    resolver: zodResolver(newAthleteFormSchema),
+    defaultValues: {
+      name: '',
+      gender: undefined as 'male' | 'female' | undefined,
+      sport: '',
+      position: '',
+      birth_date: '',
+      head_size: undefined as 'small' | 'medium' | 'large' | undefined,
+      chest_size: undefined as 'small' | 'medium' | 'large' | undefined,
+      notes: '',
+    },
+  })
+
+  const { isSubmitting } = form.formState
 
   useEffect(() => {
     async function fetchAthlete() {
@@ -43,24 +68,48 @@ export default function EditAthletePage() {
       
       if (!error && data) {
         setAthlete(data)
+        // Populate form with athlete data
+        form.reset({
+          name: data.name,
+          gender: data.gender,
+          sport: data.sport || '',
+          position: data.position || '',
+          birth_date: data.birth_date || '',
+          head_size: data.head_size || undefined,
+          chest_size: data.chest_size || undefined,
+          notes: data.notes || '',
+        })
       }
       setLoading(false)
     }
     
     fetchAthlete()
-  }, [athleteId])
+  }, [athleteId, form])
 
-  async function handleUpdate(formData: FormData) {
-    setUpdateLoading(true)
-    setErrors({})
+  const onSubmit = async (values: FieldValues) => {
+    const formData = new FormData()
+    formData.set('name', values.name)
+    formData.set('gender', values.gender)
+    if (values.sport) formData.set('sport', values.sport)
+    if (values.position) formData.set('position', values.position)
+    if (values.birth_date) formData.set('birth_date', values.birth_date)
+    if (values.head_size) formData.set('head_size', values.head_size)
+    if (values.chest_size) formData.set('chest_size', values.chest_size)
+    if (values.notes) formData.set('notes', values.notes)
     
     const result = await updateAthlete(athleteId, formData)
     
     if (!result.success) {
-      setUpdateLoading(false)
       if (result.fieldErrors) {
-        setErrors(result.fieldErrors)
+        Object.entries(result.fieldErrors).forEach(([field, messages]) => {
+          if (messages) {
+            form.setError(field as keyof NewAthleteFormValues, { 
+              message: messages.join(', ') 
+            })
+          }
+        })
       }
+      form.setError('root', { message: result.error })
       toast.error(result.error)
     }
     // Note: updateAthlete redirects on success
@@ -120,162 +169,215 @@ export default function EditAthletePage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={handleUpdate} className="space-y-6">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              {form.formState.errors.root && (
+                <div 
+                  className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm"
+                  role="alert"
+                  aria-live="assertive"
+                >
+                  {form.formState.errors.root.message}
+                </div>
+              )}
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="name" className="text-slate-300">
-                  Name <span className="text-red-400">*</span>
-                </Label>
-                <Input
-                  id="name"
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
                   name="name"
-                  defaultValue={athlete.name}
-                  placeholder="John Smith"
-                  className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-slate-300">
+                        Name <span className="text-red-400">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="John Smith"
+                          className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-                {errors.name && (
-                  <p className="text-sm text-red-400" role="alert" aria-live="assertive">
-                    {errors.name.join(', ')}
-                  </p>
-                )}
+
+                <FormField
+                  control={form.control}
+                  name="gender"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-slate-300">
+                        Gender <span className="text-red-400">*</span>
+                      </FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white focus:border-cyan-500">
+                            <SelectValue placeholder="Select gender" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="bg-slate-900 border-slate-700">
+                          <SelectItem value="male" className="text-white focus:bg-slate-800">Male</SelectItem>
+                          <SelectItem value="female" className="text-white focus:bg-slate-800">Female</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="gender" className="text-slate-300">
-                  Gender <span className="text-red-400">*</span>
-                </Label>
-                <Select name="gender" defaultValue={athlete.gender}>
-                  <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white focus:border-cyan-500">
-                    <SelectValue placeholder="Select gender" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-900 border-slate-700">
-                    <SelectItem value="male" className="text-white focus:bg-slate-800">Male</SelectItem>
-                    <SelectItem value="female" className="text-white focus:bg-slate-800">Female</SelectItem>
-                  </SelectContent>
-                </Select>
-                {errors.gender && (
-                  <p className="text-sm text-red-400" role="alert" aria-live="assertive">
-                    {errors.gender.join(', ')}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="sport" className="text-slate-300">Sport</Label>
-                <Input
-                  id="sport"
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
                   name="sport"
-                  defaultValue={athlete.sport || ''}
-                  placeholder="Football, Basketball, etc."
-                  className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-slate-300">Sport</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Football, Basketball, etc."
+                          className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="position" className="text-slate-300">Position</Label>
-                <Input
-                  id="position"
+                <FormField
+                  control={form.control}
                   name="position"
-                  defaultValue={athlete.position || ''}
-                  placeholder="Lineman, Guard, etc."
-                  className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-slate-300">Position</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Lineman, Guard, etc."
+                          className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="birth_date" className="text-slate-300">Birth Date</Label>
-              <Input
-                id="birth_date"
+              <FormField
+                control={form.control}
                 name="birth_date"
-                type="date"
-                defaultValue={athlete.birth_date || ''}
-                className="bg-slate-800/50 border-slate-700 text-white focus:border-cyan-500"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-slate-300">Birth Date</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="date"
+                        className="bg-slate-800/50 border-slate-700 text-white focus:border-cyan-500"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
 
-            {/* Equipment Sizing */}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="head_size" className="text-slate-300">
-                  Respirator Mask Size
-                </Label>
-                <Select name="head_size" defaultValue={athlete.head_size || undefined}>
-                  <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white focus:border-cyan-500">
-                    <SelectValue placeholder="Select size" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-900 border-slate-700">
-                    <SelectItem value="small" className="text-white focus:bg-slate-800">Small</SelectItem>
-                    <SelectItem value="medium" className="text-white focus:bg-slate-800">Medium</SelectItem>
-                    <SelectItem value="large" className="text-white focus:bg-slate-800">Large</SelectItem>
-                  </SelectContent>
-                </Select>
-                {errors.head_size && (
-                  <p className="text-sm text-red-400" role="alert" aria-live="assertive">
-                    {errors.head_size.join(', ')}
-                  </p>
-                )}
+              {/* Equipment Sizing */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="head_size"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-slate-300">
+                        Respirator Mask Size
+                      </FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value || ''}>
+                        <FormControl>
+                          <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white focus:border-cyan-500">
+                            <SelectValue placeholder="Select size" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="bg-slate-900 border-slate-700">
+                          <SelectItem value="small" className="text-white focus:bg-slate-800">Small</SelectItem>
+                          <SelectItem value="medium" className="text-white focus:bg-slate-800">Medium</SelectItem>
+                          <SelectItem value="large" className="text-white focus:bg-slate-800">Large</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="chest_size"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-slate-300">
+                        HR Monitor Strap Size
+                      </FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value || ''}>
+                        <FormControl>
+                          <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white focus:border-cyan-500">
+                            <SelectValue placeholder="Select size" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="bg-slate-900 border-slate-700">
+                          <SelectItem value="small" className="text-white focus:bg-slate-800">Small</SelectItem>
+                          <SelectItem value="medium" className="text-white focus:bg-slate-800">Medium</SelectItem>
+                          <SelectItem value="large" className="text-white focus:bg-slate-800">Large</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="chest_size" className="text-slate-300">
-                  HR Monitor Strap Size
-                </Label>
-                <Select name="chest_size" defaultValue={athlete.chest_size || undefined}>
-                  <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white focus:border-cyan-500">
-                    <SelectValue placeholder="Select size" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-900 border-slate-700">
-                    <SelectItem value="small" className="text-white focus:bg-slate-800">Small</SelectItem>
-                    <SelectItem value="medium" className="text-white focus:bg-slate-800">Medium</SelectItem>
-                    <SelectItem value="large" className="text-white focus:bg-slate-800">Large</SelectItem>
-                  </SelectContent>
-                </Select>
-                {errors.chest_size && (
-                  <p className="text-sm text-red-400" role="alert" aria-live="assertive">
-                    {errors.chest_size.join(', ')}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="notes" className="text-slate-300">Notes</Label>
-              <textarea
-                id="notes"
+              <FormField
+                control={form.control}
                 name="notes"
-                rows={3}
-                defaultValue={athlete.notes || ''}
-                placeholder="Any additional notes about the athlete..."
-                className="w-full rounded-md bg-slate-800/50 border border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500 focus:ring-cyan-500/20 px-3 py-2 text-sm"
-              />
-            </div>
-
-            <div className="flex gap-3 pt-4">
-              <Button
-                type="submit"
-                disabled={updateLoading}
-                aria-busy={updateLoading}
-                className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 shadow-lg shadow-cyan-500/25"
-              >
-                {updateLoading && <span className="sr-only">Saving changes, please wait</span>}
-                {updateLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  'Save Changes'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-slate-300">Notes</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Any additional notes about the athlete..."
+                        className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500"
+                        rows={3}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )}
-              </Button>
-              <Button asChild variant="outline" className="border-slate-700 text-slate-300 hover:bg-slate-800">
-                <Link href={`/athletes/${athleteId}`}>Cancel</Link>
-              </Button>
-            </div>
-          </form>
+              />
+
+              <div className="flex gap-3 pt-4">
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  aria-busy={isSubmitting}
+                  className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 shadow-lg shadow-cyan-500/25"
+                >
+                  {isSubmitting && <span className="sr-only">Saving changes, please wait</span>}
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Changes'
+                  )}
+                </Button>
+                <Button asChild variant="outline" className="border-slate-700 text-slate-300 hover:bg-slate-800">
+                  <Link href={`/athletes/${athleteId}`}>Cancel</Link>
+                </Button>
+              </div>
+            </form>
+          </Form>
         </CardContent>
       </Card>
 
