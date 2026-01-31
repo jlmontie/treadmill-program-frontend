@@ -1,7 +1,6 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
-import { withAuth, getAuthenticatedClient } from '@/lib/supabase/auth'
+import { withAuthRateLimited } from '@/lib/supabase/auth'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
@@ -26,8 +25,8 @@ const ExerciseResultSchema = z.object({
  * Start a new workout session
  */
 export async function startWorkout(formData: FormData): Promise<void> {
-  // Authenticate and get trainer
-  const authResult = await withAuth()
+  // Authenticate and get trainer with rate limiting
+  const authResult = await withAuthRateLimited()
   if (!authResult.success) {
     redirect('/login')
   }
@@ -136,69 +135,67 @@ export async function recordExerciseResult(
  * Complete the workout session
  */
 export async function completeWorkout(sessionId: string, sessionNotes?: string): Promise<void> {
-  // Authenticate
-  try {
-    const { supabase } = await getAuthenticatedClient()
+  // Authenticate with rate limiting
+  const authResult = await withAuthRateLimited()
+  if (!authResult.success) redirect('/login')
+  const { supabase } = authResult.data
 
-    // Validate session ID
-    const sessionIdSchema = z.string().uuid('Invalid session ID')
-    const result = sessionIdSchema.safeParse(sessionId)
-    if (!result.success) {
-      redirect('/workouts?error=invalid_session')
-    }
-
-    // Sanitize notes
-    const sanitizedNotes = sessionNotes?.trim().slice(0, 1000) || null
-
-    // Update session status to completed
-    const { error: updateError } = await supabase
-      .from('workout_sessions')
-      .update({ 
-        status: 'completed',
-        completed_at: new Date().toISOString(),
-        session_notes: sanitizedNotes,
-      })
-      .eq('id', sessionId)
-
-    if (updateError) {
-      redirect(`/workouts/session/${sessionId}?error=complete_failed`)
-    }
-
-    // Atomically increment the workout number using RPC function
-    // This prevents race conditions in concurrent workout completions
-    const { data: session } = await supabase
-      .from('workout_sessions')
-      .select('athlete_program_id')
-      .eq('id', sessionId)
-      .single()
-
-    if (session) {
-      // Use atomic RPC function to increment workout number
-      const { error: incrementError } = await supabase.rpc('increment_workout_number', {
-        p_athlete_program_id: session.athlete_program_id,
-        p_session_id: sessionId
-      })
-
-      if (incrementError) {
-        console.error('Failed to increment workout number:', incrementError)
-        // Continue anyway - workout is already marked complete
-      }
-    }
-
-    revalidatePath('/workouts')
-    revalidatePath(`/workouts/${sessionId}`)
-    redirect(`/workouts/${sessionId}`)
-  } catch {
-    redirect('/login')
+  // Validate session ID
+  const sessionIdSchema = z.string().uuid('Invalid session ID')
+  const result = sessionIdSchema.safeParse(sessionId)
+  if (!result.success) {
+    redirect('/workouts?error=invalid_session')
   }
+
+  // Sanitize notes
+  const sanitizedNotes = sessionNotes?.trim().slice(0, 1000) || null
+
+  // Update session status to completed
+  const { error: updateError } = await supabase
+    .from('workout_sessions')
+    .update({ 
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+      session_notes: sanitizedNotes,
+    })
+    .eq('id', sessionId)
+
+  if (updateError) {
+    redirect(`/workouts/session/${sessionId}?error=complete_failed`)
+  }
+
+  // Atomically increment the workout number using RPC function
+  // This prevents race conditions in concurrent workout completions
+  const { data: session } = await supabase
+    .from('workout_sessions')
+    .select('athlete_program_id')
+    .eq('id', sessionId)
+    .single()
+
+  if (session) {
+    // Use atomic RPC function to increment workout number
+    const { error: incrementError } = await supabase.rpc('increment_workout_number', {
+      p_athlete_program_id: session.athlete_program_id,
+      p_session_id: sessionId
+    })
+
+    if (incrementError) {
+      console.error('Failed to increment workout number:', incrementError)
+      // Continue anyway - workout is already marked complete
+    }
+  }
+
+  revalidatePath('/workouts')
+  revalidatePath(`/workouts/${sessionId}`)
+  redirect(`/workouts/${sessionId}`)
 }
 
 /**
  * Cancel a workout session
  */
 export async function cancelWorkout(sessionId: string): Promise<ActionResult<void>> {
-  // Authenticate
-  const authResult = await withAuth()
+  // Authenticate with rate limiting
+  const authResult = await withAuthRateLimited()
   if (!authResult.success) return authResult
   const { supabase } = authResult.data
 

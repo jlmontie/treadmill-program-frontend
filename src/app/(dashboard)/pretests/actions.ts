@@ -1,7 +1,6 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
-import { withAuth, getAuthenticatedClient } from '@/lib/supabase/auth'
+import { withAuthRateLimited } from '@/lib/supabase/auth'
 import { upsertMetabolicResults } from '@/lib/supabase/metabolic'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
@@ -33,8 +32,8 @@ const StepResultSchema = z.object({
  * Start a new pre-test session
  */
 export async function startPretest(formData: FormData): Promise<void> {
-  // Authenticate and get trainer
-  const authResult = await withAuth()
+  // Authenticate and get trainer with rate limiting
+  const authResult = await withAuthRateLimited()
   if (!authResult.success) {
     redirect('/login')
   }
@@ -147,67 +146,65 @@ const CompletePretestSchema = z.object({
 })
 
 export async function completePretest(formData: FormData): Promise<void> {
-  // Authenticate
-  try {
-    const { supabase } = await getAuthenticatedClient()
+  // Authenticate with rate limiting
+  const authResult = await withAuthRateLimited()
+  if (!authResult.success) redirect('/login')
+  const { supabase } = authResult.data
 
-    // Validate all FormData inputs with comprehensive schema
-    const validated = CompletePretestSchema.safeParse({
-      session_id: formData.get('session_id'),
-      at_hr: formData.get('at_hr'),
-      max_hr: formData.get('max_hr'),
-      recovery_hr_2min: formData.get('recovery_hr_2min'),
-      notes: formData.get('notes'),
-    })
+  // Validate all FormData inputs with comprehensive schema
+  const validated = CompletePretestSchema.safeParse({
+    session_id: formData.get('session_id'),
+    at_hr: formData.get('at_hr'),
+    max_hr: formData.get('max_hr'),
+    recovery_hr_2min: formData.get('recovery_hr_2min'),
+    notes: formData.get('notes'),
+  })
 
-    if (!validated.success) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Validation failed:', validated.error)
-      }
-      redirect('/pretests')
+  if (!validated.success) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Validation failed:', validated.error)
     }
-
-    const { session_id, at_hr, max_hr, recovery_hr_2min, notes } = validated.data
-
-    // Use the shared upsert utility for metabolic results
-    const result = await upsertMetabolicResults(supabase, session_id, {
-      atHr: at_hr,
-      maxHr: max_hr,
-      recoveryHr2min: recovery_hr_2min,
-      notes,
-    })
-
-    if (!result.success) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to save metabolic results:', result.error)
-      }
-      redirect(`/pretests/session/${session_id}?error=metabolic_failed`)
-    }
-
-    // Update session status to completed
-    const { error: sessionError } = await supabase
-      .from('pretest_sessions')
-      .update({ status: 'completed' })
-      .eq('id', session_id)
-
-    if (sessionError && process.env.NODE_ENV === 'development') {
-      console.error('Failed to update session status:', sessionError)
-    }
-
-    revalidatePath('/pretests')
-    revalidatePath(`/pretests/${session_id}`)
-    redirect(`/pretests/${session_id}`)
-  } catch {
-    redirect('/login')
+    redirect('/pretests')
   }
+
+  const { session_id, at_hr, max_hr, recovery_hr_2min, notes } = validated.data
+
+  // Use the shared upsert utility for metabolic results
+  const result = await upsertMetabolicResults(supabase, session_id, {
+    atHr: at_hr,
+    maxHr: max_hr,
+    recoveryHr2min: recovery_hr_2min,
+    notes,
+  })
+
+  if (!result.success) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Failed to save metabolic results:', result.error)
+    }
+    redirect(`/pretests/session/${session_id}?error=metabolic_failed`)
+  }
+
+  // Update session status to completed
+  const { error: sessionError } = await supabase
+    .from('pretest_sessions')
+    .update({ status: 'completed' })
+    .eq('id', session_id)
+
+  if (sessionError && process.env.NODE_ENV === 'development') {
+    console.error('Failed to update session status:', sessionError)
+  }
+
+  revalidatePath('/pretests')
+  revalidatePath(`/pretests/${session_id}`)
+  redirect(`/pretests/${session_id}`)
 }
 
 /**
  * Update metabolic results for a completed pre-test
  */
 export async function updateMetabolicResults(formData: FormData): Promise<ActionResult<void>> {
-  // Authenticate
-  const authResult = await withAuth()
+  // Authenticate with rate limiting
+  const authResult = await withAuthRateLimited()
   if (!authResult.success) return authResult
   const { supabase } = authResult.data
 
@@ -291,8 +288,8 @@ export async function updateStepResult(
  * Cancel/delete a pre-test session
  */
 export async function cancelPretest(sessionId: string): Promise<ActionResult<void>> {
-  // Authenticate
-  const authResult = await withAuth()
+  // Authenticate with rate limiting
+  const authResult = await withAuthRateLimited()
   if (!authResult.success) return authResult
   const { supabase } = authResult.data
 

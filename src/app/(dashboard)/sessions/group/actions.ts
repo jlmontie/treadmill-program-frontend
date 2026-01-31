@@ -1,6 +1,6 @@
 'use server'
 
-import { withAuth } from '@/lib/supabase/auth'
+import { withAuthRateLimited } from '@/lib/supabase/auth'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { type ActionResult, failure, success, successVoid } from '@/lib/types/actions'
@@ -18,8 +18,8 @@ const LogExerciseResultSchema = z.object({
 })
 
 export async function startWorkoutForGroup(athleteProgramId: string): Promise<ActionResult<{ sessionId: string }>> {
-  // Authenticate and get trainer
-  const authResult = await withAuth()
+  // Authenticate and get trainer with rate limiting
+  const authResult = await withAuthRateLimited()
   if (!authResult.success) return authResult
   const { supabase, trainer } = authResult.data
 
@@ -124,8 +124,8 @@ export async function logExerciseResult({
   actualSpeed?: number | null
   notes?: string | null
 }): Promise<ActionResult<void>> {
-  // Authenticate
-  const authResult = await withAuth()
+  // Authenticate with rate limiting
+  const authResult = await withAuthRateLimited()
   if (!authResult.success) return authResult
   const { supabase } = authResult.data
 
@@ -217,8 +217,8 @@ export async function logExerciseResult({
 }
 
 export async function completeWorkoutSession(workoutSessionId: string, notes?: string): Promise<ActionResult<void>> {
-  // Authenticate
-  const authResult = await withAuth()
+  // Authenticate with rate limiting
+  const authResult = await withAuthRateLimited()
   if (!authResult.success) return authResult
   const { supabase } = authResult.data
 
@@ -251,8 +251,8 @@ export async function completeWorkoutSession(workoutSessionId: string, notes?: s
 }
 
 export async function cancelGroupWorkout(workoutSessionId: string): Promise<ActionResult<void>> {
-  // Authenticate
-  const authResult = await withAuth()
+  // Authenticate with rate limiting
+  const authResult = await withAuthRateLimited()
   if (!authResult.success) return authResult
   const { supabase } = authResult.data
 

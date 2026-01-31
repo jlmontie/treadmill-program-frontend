@@ -1,6 +1,6 @@
 'use server'
 
-import { withAuth, withAuthRateLimited } from '@/lib/supabase/auth'
+import { withAuthRateLimited } from '@/lib/supabase/auth'
 import { upsertMetabolicResults } from '@/lib/supabase/metabolic'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
@@ -282,8 +282,8 @@ export async function startWorkoutForAthlete(
   programId: number,
   currentWorkoutNumber: number
 ): Promise<ActionResult<{ sessionId: string }>> {
-  // Authenticate and get trainer
-  const authResult = await withAuth()
+  // Authenticate and get trainer with rate limiting
+  const authResult = await withAuthRateLimited()
   if (!authResult.success) return authResult
   const { supabase, trainer } = authResult.data
 
@@ -352,8 +352,8 @@ export async function startWorkoutForAthlete(
  * Creates a standalone pretest session specifically for metabolic data
  */
 export async function saveMetabolicTest(formData: FormData): Promise<ActionResult<void>> {
-  // Authenticate and get trainer
-  const authResult = await withAuth()
+  // Authenticate and get trainer with rate limiting
+  const authResult = await withAuthRateLimited()
   if (!authResult.success) return authResult
   const { supabase, trainer } = authResult.data
 
