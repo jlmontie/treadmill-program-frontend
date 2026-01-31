@@ -6,9 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
-import { ArrowLeft, Edit, ClipboardCheck, Calendar, User, Dumbbell } from 'lucide-react'
+import { ArrowLeft, Edit, ClipboardCheck, Calendar, User, Dumbbell, Heart } from 'lucide-react'
 import { AssignProgramForm } from './assign-program-form'
 import { StartWorkoutButton } from './start-workout-button'
+import { MetabolicTestForm } from './metabolic-test-form'
 
 interface AthleteDetailPageProps {
   params: Promise<{ id: string }>
@@ -104,6 +105,38 @@ export default async function AthleteDetailPage({ params }: AthleteDetailPagePro
     ?.filter(s => s.status === 'completed')
     .sort((a, b) => new Date(b.session_date).getTime() - new Date(a.session_date).getTime())[0]
 
+  // Get latest metabolic results for this athlete
+  const { data: metabolicData } = await supabase
+    .from('metabolic_results')
+    .select(`
+      at_hr,
+      max_hr,
+      recovery_hr_2min,
+      recovery_hr,
+      at_max_percent,
+      recovery_at_percent,
+      metabolic_category,
+      notes,
+      pretest_sessions!inner (
+        athlete_id
+      )
+    `)
+    .eq('pretest_sessions.athlete_id', id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single() as { data: {
+      at_hr: number | null
+      max_hr: number | null
+      recovery_hr_2min: number | null
+      recovery_hr: number | null
+      at_max_percent: number | null
+      recovery_at_percent: number | null
+      metabolic_category: string | null
+      notes: string | null
+    } | null }
+
+  const latestMetabolic = metabolicData || null
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -132,7 +165,7 @@ export default async function AthleteDetailPage({ params }: AthleteDetailPagePro
             </p>
           </div>
         </div>
-        <div className="flex gap-3 ml-12 md:ml-0">
+        <div className="flex flex-wrap gap-3 ml-12 md:ml-0">
           <Button asChild variant="outline" className="border-slate-700 text-slate-300 hover:bg-slate-800">
             <Link href={`/athletes/${id}/edit`}>
               <Edit className="mr-2 h-4 w-4" />
@@ -317,6 +350,76 @@ export default async function AthleteDetailPage({ params }: AthleteDetailPagePro
           </CardContent>
         </Card>
       </div>
+
+      {/* Metabolic Results */}
+      <Card className="bg-slate-900/50 border-slate-800">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-white flex items-center gap-2">
+              <Heart className="h-5 w-5 text-rose-400" />
+              Metabolic Test Results
+            </CardTitle>
+            <MetabolicTestForm
+              athleteId={id}
+              athleteName={athlete.name}
+              existingResults={latestMetabolic}
+            />
+          </div>
+          <CardDescription className="text-slate-400">
+            Heart rate data from metabolic testing
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {latestMetabolic ? (
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="text-center p-4 rounded-lg bg-cyan-500/10 border border-cyan-500/30">
+                <div className="text-2xl font-bold text-cyan-400">
+                  {latestMetabolic.at_hr ?? '—'}
+                </div>
+                <div className="text-xs text-slate-400">AT HR (bpm)</div>
+              </div>
+              <div className="text-center p-4 rounded-lg bg-rose-500/10 border border-rose-500/30">
+                <div className="text-2xl font-bold text-rose-400">
+                  {latestMetabolic.max_hr ?? '—'}
+                </div>
+                <div className="text-xs text-slate-400">Max HR (bpm)</div>
+              </div>
+              <div className="text-center p-4 rounded-lg bg-violet-500/10 border border-violet-500/30">
+                <div className="text-2xl font-bold text-violet-400">
+                  {latestMetabolic.recovery_hr ?? '—'}
+                </div>
+                <div className="text-xs text-slate-400">Recovery HR Target</div>
+              </div>
+              <div className="text-center p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
+                <div className="text-2xl font-bold text-emerald-400">
+                  {latestMetabolic.at_max_percent ? `${Math.round(latestMetabolic.at_max_percent)}%` : '—'}
+                </div>
+                <div className="text-xs text-slate-400">AT/Max %</div>
+              </div>
+              <div className="text-center p-4 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                <div className={`text-lg font-bold ${
+                  latestMetabolic.metabolic_category === 'la' ? 'text-amber-400' :
+                  latestMetabolic.metabolic_category === 'low' ? 'text-emerald-400' :
+                  'text-slate-300'
+                }`}>
+                  {latestMetabolic.metabolic_category === 'la' ? 'High LA' :
+                   latestMetabolic.metabolic_category === 'low' ? 'Low Met' :
+                   latestMetabolic.metabolic_category === 'standard' ? 'Standard' : '—'}
+                </div>
+                <div className="text-xs text-slate-400">Category</div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Heart className="h-12 w-12 mx-auto text-slate-600 mb-3" />
+              <p className="text-slate-400">No metabolic test data yet</p>
+              <p className="text-sm text-slate-500 mt-1">
+                Record a metabolic test to determine program recommendations
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Program History */}
       <Card className="bg-slate-900/50 border-slate-800">

@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
+import { calculateMetabolicData } from '@/lib/metabolic'
 
 const AthleteSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -37,6 +38,7 @@ export async function createAthlete(
 ): Promise<AthleteFormState> {
   const supabase = await createClient()
 
+  // Note: Add head_size and chest_size parsing once migration is applied
   const validatedFields = AthleteSchema.safeParse({
     name: formData.get('name'),
     gender: formData.get('gender'),
@@ -82,6 +84,7 @@ export async function updateAthlete(
 ): Promise<AthleteFormState> {
   const supabase = await createClient()
 
+  // Note: Add head_size and chest_size parsing once migration is applied
   const validatedFields = AthleteSchema.safeParse({
     name: formData.get('name'),
     gender: formData.get('gender'),
@@ -330,4 +333,156 @@ export async function startWorkoutForAthlete(
   revalidatePath('/workouts')
   revalidatePath(`/athletes`)
   redirect(`/workouts/session/${session.id}`)
+}
+
+/**
+ * Save metabolic test results for an athlete
+ * Creates a standalone pretest session specifically for metabolic data
+ */
+export async function saveMetabolicTest(formData: FormData) {
+  const supabase = await createClient()
+
+  const athleteId = formData.get('athlete_id') as string
+  const atHr = formData.get('at_hr') as string
+  const maxHr = formData.get('max_hr') as string
+  const recoveryHr2min = formData.get('recovery_hr_2min') as string
+  const speedOnly = formData.get('speed_only') === 'true'
+  const notes = formData.get('notes') as string
+
+  if (!athleteId || !atHr || !maxHr) {
+    return { error: 'Athlete, AT HR, and Max HR are required' }
+  }
+
+  // Get current trainer
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { error: 'Not authenticated' }
+  }
+
+  const { data: trainer } = await supabase
+    .from('trainers')
+    .select('id')
+    .eq('auth_user_id', user.id)
+    .single() as { data: { id: string } | null }
+
+  if (!trainer) {
+    return { error: 'Trainer profile not found' }
+  }
+
+  // Get the "Standard" pretest type for metabolic-only tests
+  // This is a workaround since metabolic_results requires a pretest_session
+  const { data: pretestType } = await supabase
+    .from('pretest_types')
+    .select('id')
+    .eq('code', 'standard')
+    .single() as { data: { id: number } | null }
+
+  if (!pretestType) {
+    return { error: 'Could not find pretest type for metabolic test' }
+  }
+
+  // Check if athlete already has a metabolic-only pretest session
+  // Look for a completed pretest that has metabolic results
+  const { data: existingSession } = await supabase
+    .from('pretest_sessions')
+    .select(`
+      id,
+      metabolic_results (id)
+    `)
+    .eq('athlete_id', athleteId)
+    .eq('status', 'completed')
+    .order('session_date', { ascending: false })
+    .limit(1)
+    .single() as { data: { id: string; metabolic_results: { id: string }[] | null } | null }
+
+  let sessionId: string
+
+  if (existingSession?.metabolic_results?.length) {
+    // Update existing metabolic results
+    sessionId = existingSession.id
+  } else {
+    // Create a new pretest session for metabolic data
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: newSession, error: sessionError } = await (supabase as any)
+      .from('pretest_sessions')
+      .insert({
+        athlete_id: athleteId,
+        pretest_type_id: pretestType.id,
+        trainer_id: trainer.id,
+        session_date: new Date().toISOString().split('T')[0],
+        status: 'completed', // Mark as completed since this is metabolic-only
+      })
+      .select()
+      .single()
+
+    if (sessionError || !newSession) {
+      return { error: sessionError?.message || 'Failed to create metabolic test session' }
+    }
+
+    sessionId = newSession.id
+  }
+
+  // Calculate percentages using centralized utility
+  const atHrNum = parseInt(atHr)
+  const maxHrNum = parseInt(maxHr)
+  const recoveryHr2minNum = recoveryHr2min ? parseInt(recoveryHr2min) : null
+
+  const { atMaxPercent, recoveryAtPercent, metabolicCategory, recoveryHr } = calculateMetabolicData({
+    atHr: atHrNum,
+    maxHr: maxHrNum,
+    recoveryHr2min: recoveryHr2minNum,
+    speedOnly
+  })
+
+  // Check if metabolic results already exist for this session
+  const { data: existingResults } = await supabase
+    .from('metabolic_results')
+    .select('id')
+    .eq('pretest_session_id', sessionId)
+    .single() as { data: { id: string } | null }
+
+  if (existingResults) {
+    // Update existing results
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: updateError } = await (supabase as any)
+      .from('metabolic_results')
+      .update({
+        at_hr: atHrNum,
+        max_hr: maxHrNum,
+        at_max_percent: atMaxPercent,
+        recovery_hr_2min: recoveryHr2minNum,
+        recovery_at_percent: recoveryAtPercent,
+        recovery_hr: recoveryHr,
+        metabolic_category: metabolicCategory,
+        notes: notes || null,
+      })
+      .eq('id', existingResults.id)
+
+    if (updateError) {
+      return { error: updateError.message }
+    }
+  } else {
+    // Insert new results
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: insertError } = await (supabase as any)
+      .from('metabolic_results')
+      .insert({
+        pretest_session_id: sessionId,
+        at_hr: atHrNum,
+        max_hr: maxHrNum,
+        at_max_percent: atMaxPercent,
+        recovery_hr_2min: recoveryHr2minNum,
+        recovery_at_percent: recoveryAtPercent,
+        recovery_hr: recoveryHr,
+        metabolic_category: metabolicCategory,
+        notes: notes || null,
+      })
+
+    if (insertError) {
+      return { error: insertError.message }
+    }
+  }
+
+  revalidatePath(`/athletes/${athleteId}`)
+  return { success: true }
 }
