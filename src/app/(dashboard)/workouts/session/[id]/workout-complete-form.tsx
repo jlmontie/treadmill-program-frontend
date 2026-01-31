@@ -110,9 +110,11 @@ export function WorkoutCompleteForm({
             <Button
               type="submit"
               disabled={isSubmitting}
+              aria-busy={isSubmitting}
               size="lg"
               className="w-full bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-lg py-6 shadow-lg shadow-emerald-500/25"
             >
+              {isSubmitting && <span className="sr-only">Completing workout, please wait</span>}
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />

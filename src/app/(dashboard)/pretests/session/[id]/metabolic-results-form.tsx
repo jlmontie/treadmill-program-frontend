@@ -193,8 +193,10 @@ export function MetabolicResultsForm({ sessionId, athleteName }: MetabolicResult
               <Button
                 type="submit"
                 disabled={isSubmitting}
+                aria-busy={isSubmitting}
                 className="bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 shadow-lg shadow-emerald-500/25"
               >
+                {isSubmitting && <span className="sr-only">Completing pretest, please wait</span>}
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

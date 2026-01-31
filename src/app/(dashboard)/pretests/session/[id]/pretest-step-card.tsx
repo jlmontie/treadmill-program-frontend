@@ -190,7 +190,11 @@ export function PretestStepCard({ sessionId, step, isCurrentStep, isGateStep }: 
 
       {/* Error */}
       {error && (
-        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+        <div 
+          className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm"
+          role="alert"
+          aria-live="assertive"
+        >
           {error}
         </div>
       )}
@@ -199,8 +203,10 @@ export function PretestStepCard({ sessionId, step, isCurrentStep, isGateStep }: 
       <Button
         onClick={handleSubmit}
         disabled={!selectedLevel || isPending}
+        aria-busy={isPending}
         className="w-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 disabled:opacity-50"
       >
+        {isPending && <span className="sr-only">Recording step result, please wait</span>}
         {isPending ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />

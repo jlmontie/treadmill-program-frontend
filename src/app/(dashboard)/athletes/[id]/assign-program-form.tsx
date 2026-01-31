@@ -248,7 +248,11 @@ export function AssignProgramForm({
             />
 
             {error && (
-              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+              <div 
+                className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm"
+                role="alert"
+                aria-live="assertive"
+              >
                 {error}
               </div>
             )}
@@ -266,8 +270,10 @@ export function AssignProgramForm({
               <Button
                 type="submit"
                 disabled={isPending || !form.formState.isValid}
+                aria-busy={isPending}
                 className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500"
               >
+                {isPending && <span className="sr-only">Assigning program, please wait</span>}
                 {isPending ? (
                   retryAttempt > 0 ? (
                     <>

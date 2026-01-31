@@ -401,8 +401,10 @@ export function GroupSessionManager({ activeWorkouts: initialWorkouts, available
               <Button
                 onClick={handleStartSelectedWorkouts}
                 disabled={selectedAthletes.size === 0 || isStartingWorkouts}
+                aria-busy={isStartingWorkouts}
                 className="bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 shadow-lg shadow-emerald-500/25 flex-1 sm:flex-initial"
               >
+                {isStartingWorkouts && <span className="sr-only">Starting workouts, please wait</span>}
                 {isStartingWorkouts ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

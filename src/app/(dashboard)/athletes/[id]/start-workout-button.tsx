@@ -39,8 +39,10 @@ export function StartWorkoutButton({
       <Button 
         onClick={handleClick}
         disabled={isPending}
+        aria-busy={isPending}
         className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 shadow-lg shadow-cyan-500/25"
       >
+        {isPending && <span className="sr-only">Starting workout, please wait</span>}
         {isPending ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -54,7 +56,9 @@ export function StartWorkoutButton({
         )}
       </Button>
       {error && (
-        <p className="text-red-400 text-sm mt-2">{error}</p>
+        <p className="text-red-400 text-sm mt-2" role="alert" aria-live="assertive">
+          {error}
+        </p>
       )}
     </div>
   )

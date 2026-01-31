@@ -114,8 +114,10 @@ export function CancelWorkoutButton({
           <Button
             onClick={handleCancel}
             disabled={isPending}
+            aria-busy={isPending}
             className="bg-red-600 hover:bg-red-500 text-white"
           >
+            {isPending && <span className="sr-only">Canceling workout, please wait</span>}
             {isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -51,7 +51,11 @@ export default async function SettingsPage({
         </div>
       )}
       {error && (
-        <div className="max-w-2xl p-4 rounded-lg bg-red-500/10 border border-red-500/30 flex items-center gap-3">
+        <div 
+          className="max-w-2xl p-4 rounded-lg bg-red-500/10 border border-red-500/30 flex items-center gap-3"
+          role="alert"
+          aria-live="assertive"
+        >
           <AlertCircle className="h-5 w-5 text-red-400" />
           <p className="text-red-400">Failed to update profile. Please try again.</p>
         </div>

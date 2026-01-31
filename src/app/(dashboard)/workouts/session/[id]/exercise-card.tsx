@@ -235,7 +235,11 @@ export function ExerciseCard({ sessionId, exercise, athleteGender, isCurrentExer
 
       {/* Error */}
       {error && (
-        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+        <div 
+          className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm"
+          role="alert"
+          aria-live="assertive"
+        >
           {error}
         </div>
       )}
@@ -244,9 +248,11 @@ export function ExerciseCard({ sessionId, exercise, athleteGender, isCurrentExer
       <Button
         onClick={handleSubmit}
         disabled={!selectedLevel || (hasMultipleSpeeds && !selectedColumn) || isPending}
+        aria-busy={isPending}
         size="lg"
         className="w-full bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 disabled:opacity-50 text-lg py-6"
       >
+        {isPending && <span className="sr-only">Recording exercise result, please wait</span>}
         {isPending ? (
           <>
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />

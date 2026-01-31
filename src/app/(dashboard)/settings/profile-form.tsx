@@ -91,7 +91,11 @@ export function ProfileForm({ currentName, email }: ProfileFormProps) {
         </div>
 
         {form.formState.errors.root && (
-          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+          <div 
+            className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm"
+            role="alert"
+            aria-live="assertive"
+          >
             {form.formState.errors.root.message}
           </div>
         )}
@@ -100,8 +104,10 @@ export function ProfileForm({ currentName, email }: ProfileFormProps) {
           <Button
             type="submit"
             disabled={isSubmitting || !isDirty}
+            aria-busy={isSubmitting}
             className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:opacity-50"
           >
+            {isSubmitting && <span className="sr-only">Saving profile, please wait</span>}
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
