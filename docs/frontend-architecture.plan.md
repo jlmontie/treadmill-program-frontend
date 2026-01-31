@@ -437,8 +437,8 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 - [x] Real-time sync between trainers (Supabase Realtime on workouts/pretests)
 - [x] Gender-based program filtering
 - [x] Recovery HR calculation (database trigger)
-- [ ] Performance optimization
-- [ ] Error handling & edge cases
+- [x] Performance optimization (loading skeletons for all detail pages)
+- [x] Error handling & edge cases (error boundaries, toast notifications, retry utilities)
 
 ### Phase 6: Mobile Optimization
 - [ ] Touch interface refinements
@@ -465,6 +465,8 @@ treadmill-program-frontend/
 │   ├── pretests/
 │   ├── workouts/
 │   └── dashboard/
+├── hooks/
+│   └── use-retry-action.ts      # Hook for server actions with retry & toast
 ├── lib/
 │   ├── supabase/
 │   │   ├── client.ts
@@ -475,6 +477,7 @@ treadmill-program-frontend/
 │   │   └── index.ts
 │   ├── pretest-flow.ts          # Pre-test branching logic & program recommendations
 │   ├── workout-adjustment.ts    # Workout #3 speed analysis & adjustment logic
+│   ├── retry.ts                 # Retry utility with exponential backoff
 │   └── utils.ts
 ├── public/
 ├── docs/
@@ -505,8 +508,8 @@ treadmill-program-frontend/
 9. ~~Build multi-athlete real-time dashboard~~ ✅
 10. ~~Implement program assignment logic (pre-test branching, metabolic categories)~~ ✅
 11. ~~Add workout #3 adjustment recommendations~~ ✅
-12. **Performance & error handling** ← Current priority
-13. Mobile/touch optimization
+12. ~~Performance & error handling~~ ✅
+13. **Mobile/touch optimization** ← Current priority
 
 ---
 
@@ -527,3 +530,11 @@ treadmill-program-frontend/
 - Equipment sizing columns (head_size, chest_size)
 - Recovery HR auto-calculation via trigger
 - HR monitoring preference on athlete programs
+
+### Performance & Error Handling (Jan 2026)
+- Global 404 not-found page with navigation options
+- Toast notifications via Sonner for all mutations (success/error feedback)
+- Loading skeletons for all detail pages (athletes, workouts, pretests, sessions)
+- Dedicated error boundaries for workout and pretest sessions
+- Retry utility (`lib/retry.ts`) with exponential backoff for transient failures
+- `useRetryAction` hook for easy retry integration in components

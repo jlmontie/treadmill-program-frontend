@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { Button } from '@/components/ui/button'
 import { Play, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { startWorkoutForAthlete } from '../actions'
 
 interface StartWorkoutButtonProps {
@@ -25,6 +26,9 @@ export function StartWorkoutButton({
       const result = await startWorkoutForAthlete(athleteProgramId, programId, currentWorkoutNumber)
       if (result?.error) {
         setError(result.error)
+        toast.error('Failed to start workout', {
+          description: result.error,
+        })
       }
       // If successful, the action will redirect
     })
