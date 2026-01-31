@@ -122,36 +122,58 @@ export async function recordStepResult(
 /**
  * Save metabolic results and complete the pre-test
  */
+// Schema for completing pretest with metabolic results
+const CompletePretestSchema = z.object({
+  session_id: z.string().uuid('Invalid session ID'),
+  at_hr: z.string().optional().transform((val) => {
+    if (!val || val === '') return null
+    const parsed = z.coerce.number().int().min(40, 'AT HR must be at least 40').max(250, 'AT HR must be at most 250').safeParse(val)
+    if (!parsed.success) return null
+    return parsed.data
+  }),
+  max_hr: z.string().optional().transform((val) => {
+    if (!val || val === '') return null
+    const parsed = z.coerce.number().int().min(40, 'Max HR must be at least 40').max(250, 'Max HR must be at most 250').safeParse(val)
+    if (!parsed.success) return null
+    return parsed.data
+  }),
+  recovery_hr_2min: z.string().optional().transform((val) => {
+    if (!val || val === '') return null
+    const parsed = z.coerce.number().int().min(40, 'Recovery HR must be at least 40').max(250, 'Recovery HR must be at most 250').safeParse(val)
+    if (!parsed.success) return null
+    return parsed.data
+  }),
+  notes: z.string().optional().transform((val) => val?.trim() || null),
+})
+
 export async function completePretest(formData: FormData): Promise<void> {
   // Authenticate
   try {
     const { supabase } = await getAuthenticatedClient()
 
-    // Validate input - allow null/empty HR values since they're optional
-    const sessionId = formData.get('session_id') as string
-    const atHrRaw = formData.get('at_hr') as string
-    const maxHrRaw = formData.get('max_hr') as string
-    const recoveryHrRaw = formData.get('recovery_hr_2min') as string
-    const notes = (formData.get('notes') as string)?.trim() || null
+    // Validate all FormData inputs with comprehensive schema
+    const validated = CompletePretestSchema.safeParse({
+      session_id: formData.get('session_id'),
+      at_hr: formData.get('at_hr'),
+      max_hr: formData.get('max_hr'),
+      recovery_hr_2min: formData.get('recovery_hr_2min'),
+      notes: formData.get('notes'),
+    })
 
-    // Validate session ID
-    const sessionIdSchema = z.string().uuid('Invalid session ID')
-    const sessionIdResult = sessionIdSchema.safeParse(sessionId)
-    if (!sessionIdResult.success) {
+    if (!validated.success) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Validation failed:', validated.error)
+      }
       redirect('/pretests')
     }
 
-    // Parse HR values safely with Zod
-    const hrSchema = z.coerce.number().int().min(40).max(250).optional()
-    const atHrNum = atHrRaw ? hrSchema.safeParse(atHrRaw).data ?? null : null
-    const maxHrNum = maxHrRaw ? hrSchema.safeParse(maxHrRaw).data ?? null : null
-    const recoveryHrNum = recoveryHrRaw ? hrSchema.safeParse(recoveryHrRaw).data ?? null : null
+    const { session_id, at_hr, max_hr, recovery_hr_2min, notes } = validated.data
 
     // Use the shared upsert utility for metabolic results
-    const result = await upsertMetabolicResults(supabase, sessionId, {
-      atHr: atHrNum,
-      maxHr: maxHrNum,
-      recoveryHr2min: recoveryHrNum,
+    const result = await upsertMetabolicResults(supabase, session_id, {
+      atHr: at_hr,
+      maxHr: max_hr,
+      recoveryHr2min: recovery_hr_2min,
       notes,
     })
 
@@ -159,22 +181,22 @@ export async function completePretest(formData: FormData): Promise<void> {
       if (process.env.NODE_ENV === 'development') {
         console.error('Failed to save metabolic results:', result.error)
       }
-      redirect(`/pretests/session/${sessionId}?error=metabolic_failed`)
+      redirect(`/pretests/session/${session_id}?error=metabolic_failed`)
     }
 
     // Update session status to completed
     const { error: sessionError } = await supabase
       .from('pretest_sessions')
       .update({ status: 'completed' })
-      .eq('id', sessionId)
+      .eq('id', session_id)
 
     if (sessionError && process.env.NODE_ENV === 'development') {
       console.error('Failed to update session status:', sessionError)
     }
 
     revalidatePath('/pretests')
-    revalidatePath(`/pretests/${sessionId}`)
-    redirect(`/pretests/${sessionId}`)
+    revalidatePath(`/pretests/${session_id}`)
+    redirect(`/pretests/${session_id}`)
   } catch {
     redirect('/login')
   }
