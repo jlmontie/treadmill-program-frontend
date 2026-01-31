@@ -14,7 +14,6 @@ import {
   X,
   XCircle,
   Clock,
-  Dumbbell,
   ExternalLink,
   Loader2
 } from 'lucide-react'
@@ -99,7 +98,7 @@ export function AthleteWorkoutCard({ workout, colorIndex, onRefresh }: AthleteWo
     }
 
     fetchCurrentExercise()
-  }, [workout.id, workout.program_workout_id, workout.completed_exercises])
+  }, [workout.id, workout.program_workout_id, workout.completed_exercises, supabase])
 
   // Update elapsed time
   useEffect(() => {
@@ -135,7 +134,9 @@ export function AthleteWorkoutCard({ workout, colorIndex, onRefresh }: AthleteWo
         onRefresh()
       }
     } catch (error) {
-      console.error('Failed to log result:', error)
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to log result:', error)
+      }
     } finally {
       setIsLogging(false)
     }
@@ -155,7 +156,9 @@ export function AthleteWorkoutCard({ workout, colorIndex, onRefresh }: AthleteWo
         onRefresh()
       }
     } catch (error) {
-      console.error('Failed to cancel workout:', error)
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to cancel workout:', error)
+      }
     } finally {
       setIsCanceling(false)
     }

@@ -74,7 +74,7 @@ export function PretestStepCard({ sessionId, step, isCurrentStep, isGateStep }: 
     startTransition(async () => {
       const result = await recordStepResult(sessionId, step.id, selectedLevel, notes || undefined)
       
-      if (result.error) {
+      if (!result.success) {
         setError(result.error)
       } else {
         setSelectedLevel(null)

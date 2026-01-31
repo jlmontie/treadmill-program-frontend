@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { Wifi, WifiOff } from 'lucide-react'
+import { useDebouncedCallback } from '@/hooks/use-debounced-callback'
 
 interface RealtimePretestProps {
   sessionId: string
@@ -15,6 +16,32 @@ export function RealtimePretest({ sessionId, children }: RealtimePretestProps) {
   const [isConnected, setIsConnected] = useState(false)
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
   const supabase = createClient()
+
+  // Debounce router.refresh to avoid excessive refreshes on rapid updates
+  const debouncedRefresh = useDebouncedCallback(() => {
+    router.refresh()
+  }, 300)
+
+  const handleStepChange = useCallback((payload: unknown) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Pretest step result change:', payload)
+    }
+    setLastUpdate(new Date())
+    debouncedRefresh()
+  }, [debouncedRefresh])
+
+  const handleSessionChange = useCallback((payload: { new: { status: string } | null }) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Pretest session change:', payload)
+    }
+    setLastUpdate(new Date())
+    // If status changed to completed, redirect immediately (don't debounce)
+    if (payload.new && payload.new.status === 'completed') {
+      router.push(`/pretests/${sessionId}`)
+    } else {
+      debouncedRefresh()
+    }
+  }, [debouncedRefresh, router, sessionId])
 
   useEffect(() => {
     // Subscribe to changes on this specific pretest session
@@ -28,11 +55,7 @@ export function RealtimePretest({ sessionId, children }: RealtimePretestProps) {
           table: 'pretest_step_results',
           filter: `pretest_session_id=eq.${sessionId}`,
         },
-        (payload) => {
-          console.log('Pretest step result change:', payload)
-          setLastUpdate(new Date())
-          router.refresh()
-        }
+        handleStepChange
       )
       .on(
         'postgres_changes',
@@ -42,16 +65,7 @@ export function RealtimePretest({ sessionId, children }: RealtimePretestProps) {
           table: 'pretest_sessions',
           filter: `id=eq.${sessionId}`,
         },
-        (payload) => {
-          console.log('Pretest session change:', payload)
-          setLastUpdate(new Date())
-          // If status changed to completed, redirect to results
-          if (payload.new && (payload.new as { status: string }).status === 'completed') {
-            router.push(`/pretests/${sessionId}`)
-          } else {
-            router.refresh()
-          }
-        }
+        handleSessionChange as (payload: unknown) => void
       )
       .subscribe((status) => {
         setIsConnected(status === 'SUBSCRIBED')
@@ -60,7 +74,7 @@ export function RealtimePretest({ sessionId, children }: RealtimePretestProps) {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [sessionId, router])
+  }, [sessionId, supabase, handleStepChange, handleSessionChange])
 
   return (
     <div className="relative">

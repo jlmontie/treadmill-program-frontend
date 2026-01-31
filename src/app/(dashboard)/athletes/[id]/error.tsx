@@ -3,10 +3,10 @@
 import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { AlertTriangle, RefreshCw, Home } from 'lucide-react'
+import { AlertTriangle, RefreshCw, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 
-export default function DashboardError({
+export default function AthleteError({
   error,
   reset,
 }: {
@@ -15,9 +15,8 @@ export default function DashboardError({
 }) {
   useEffect(() => {
     // Log error in development only
-    // In production, this should be sent to an error reporting service (e.g., Sentry)
     if (process.env.NODE_ENV === 'development') {
-      console.error('Dashboard error:', error)
+      console.error('Athlete page error:', error)
     }
   }, [error])
 
@@ -28,9 +27,9 @@ export default function DashboardError({
           <div className="mx-auto h-16 w-16 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
             <AlertTriangle className="h-8 w-8 text-red-400" />
           </div>
-          <CardTitle className="text-white text-2xl">Something went wrong</CardTitle>
+          <CardTitle className="text-white text-2xl">Failed to load athlete</CardTitle>
           <CardDescription className="text-slate-400 mt-2">
-            {error.message || 'An unexpected error occurred while loading this page.'}
+            {error.message || 'An unexpected error occurred while loading this athlete.'}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
@@ -46,9 +45,9 @@ export default function DashboardError({
             variant="outline"
             className="w-full border-slate-700 text-slate-300 hover:bg-slate-800"
           >
-            <Link href="/">
-              <Home className="mr-2 h-4 w-4" />
-              Go Home
+            <Link href="/athletes">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Athletes
             </Link>
           </Button>
           {error.digest && (

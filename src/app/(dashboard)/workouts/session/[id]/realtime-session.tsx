@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { Badge } from '@/components/ui/badge'
-import { Wifi, WifiOff, RefreshCw } from 'lucide-react'
+import { Wifi, WifiOff } from 'lucide-react'
+import { useDebouncedCallback } from '@/hooks/use-debounced-callback'
 
 interface RealtimeSessionProps {
   sessionId: string
@@ -16,6 +16,32 @@ export function RealtimeSession({ sessionId, children }: RealtimeSessionProps) {
   const [isConnected, setIsConnected] = useState(false)
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
   const supabase = createClient()
+
+  // Debounce router.refresh to avoid excessive refreshes on rapid updates
+  const debouncedRefresh = useDebouncedCallback(() => {
+    router.refresh()
+  }, 300)
+
+  const handleExerciseChange = useCallback((payload: unknown) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Exercise result change:', payload)
+    }
+    setLastUpdate(new Date())
+    debouncedRefresh()
+  }, [debouncedRefresh])
+
+  const handleSessionChange = useCallback((payload: { new: { status: string } | null }) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Workout session change:', payload)
+    }
+    setLastUpdate(new Date())
+    // If status changed to completed, redirect immediately (don't debounce)
+    if (payload.new && payload.new.status === 'completed') {
+      router.push(`/workouts/${sessionId}`)
+    } else {
+      debouncedRefresh()
+    }
+  }, [debouncedRefresh, router, sessionId])
 
   useEffect(() => {
     // Subscribe to changes on this specific workout session
@@ -29,12 +55,7 @@ export function RealtimeSession({ sessionId, children }: RealtimeSessionProps) {
           table: 'exercise_results',
           filter: `workout_session_id=eq.${sessionId}`,
         },
-        (payload) => {
-          console.log('Exercise result change:', payload)
-          setLastUpdate(new Date())
-          // Refresh the page to get updated data
-          router.refresh()
-        }
+        handleExerciseChange
       )
       .on(
         'postgres_changes',
@@ -44,16 +65,7 @@ export function RealtimeSession({ sessionId, children }: RealtimeSessionProps) {
           table: 'workout_sessions',
           filter: `id=eq.${sessionId}`,
         },
-        (payload) => {
-          console.log('Workout session change:', payload)
-          setLastUpdate(new Date())
-          // If status changed to completed, redirect
-          if (payload.new && (payload.new as { status: string }).status === 'completed') {
-            router.push(`/workouts/${sessionId}`)
-          } else {
-            router.refresh()
-          }
-        }
+        handleSessionChange as (payload: unknown) => void
       )
       .subscribe((status) => {
         setIsConnected(status === 'SUBSCRIBED')
@@ -62,7 +74,7 @@ export function RealtimeSession({ sessionId, children }: RealtimeSessionProps) {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [sessionId, router])
+  }, [sessionId, supabase, handleExerciseChange, handleSessionChange])
 
   return (
     <div className="relative">

@@ -57,10 +57,11 @@ export function Header({ trainerName, trainerEmail }: HeaderProps) {
       {/* Search */}
       <div className="flex-1 max-w-md">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" aria-hidden="true" />
           <Input
             type="search"
             placeholder="Search athletes, workouts..."
+            aria-label="Search athletes and workouts"
             className="w-full pl-9 bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500 focus:ring-cyan-500/20"
           />
         </div>
@@ -77,7 +78,11 @@ export function Header({ trainerName, trainerEmail }: HeaderProps) {
         {/* User Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+            <Button 
+              variant="ghost" 
+              className="relative h-9 w-9 rounded-full"
+              aria-label={`User menu for ${trainerName || 'trainer'}`}
+            >
               <Avatar className="h-9 w-9 border-2 border-slate-700">
                 <AvatarFallback className="bg-gradient-to-br from-cyan-500 to-blue-600 text-white text-sm font-medium">
                   {initials}

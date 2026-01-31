@@ -1,12 +1,22 @@
 'use client'
 
-import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
 import { Loader2, Save } from 'lucide-react'
 import { updateTrainerProfile } from './actions'
+import { profileFormSchema, type ProfileFormValues } from '@/lib/validations/forms'
 
 interface ProfileFormProps {
   currentName: string
@@ -15,90 +25,97 @@ interface ProfileFormProps {
 
 export function ProfileForm({ currentName, email }: ProfileFormProps) {
   const router = useRouter()
-  const [isPending, startTransition] = useTransition()
-  const [name, setName] = useState(currentName)
-  const [error, setError] = useState<string | null>(null)
 
-  const hasChanges = name.trim() !== currentName
-  const isValid = name.trim().length > 0
+  const form = useForm<ProfileFormValues>({
+    resolver: zodResolver(profileFormSchema),
+    defaultValues: {
+      name: currentName,
+    },
+  })
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
+  const { isSubmitting, isDirty } = form.formState
 
+  const onSubmit = async (values: ProfileFormValues) => {
     const formData = new FormData()
-    formData.set('name', name)
+    formData.set('name', values.name)
 
-    startTransition(async () => {
-      const result = await updateTrainerProfile(formData)
-      
-      if (result.error) {
-        setError(result.error)
-      } else {
-        router.push('/settings?success=true')
-        router.refresh()
-      }
-    })
+    const result = await updateTrainerProfile(formData)
+    
+    if (!result.success) {
+      form.setError('root', { message: result.error })
+    } else {
+      router.push('/settings?success=true')
+      router.refresh()
+    }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="name" className="text-slate-300">
-          Name <span className="text-red-400">*</span>
-        </Label>
-        <Input
-          id="name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Enter your name"
-          className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500"
-          disabled={isPending}
-        />
-        {!currentName && (
-          <p className="text-xs text-amber-400">
-            Please enter your name to complete your profile setup.
-          </p>
-        )}
-      </div>
-
-      <div className="space-y-2">
-        <Label className="text-slate-300">Email</Label>
-        <Input
-          value={email}
-          disabled
-          className="bg-slate-800/50 border-slate-700 text-slate-400"
-        />
-        <p className="text-xs text-slate-500">
-          Email is managed through your authentication provider.
-        </p>
-      </div>
-
-      {error && (
-        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
-          {error}
-        </div>
-      )}
-
-      <div className="pt-2">
-        <Button
-          type="submit"
-          disabled={isPending || !hasChanges || !isValid}
-          className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:opacity-50"
-        >
-          {isPending ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Saving...
-            </>
-          ) : (
-            <>
-              <Save className="mr-2 h-4 w-4" />
-              Save Changes
-            </>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-slate-300">
+                Name <span className="text-red-400">*</span>
+              </FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  placeholder="Enter your name"
+                  className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500"
+                  disabled={isSubmitting}
+                />
+              </FormControl>
+              {!currentName && (
+                <FormDescription className="text-amber-400">
+                  Please enter your name to complete your profile setup.
+                </FormDescription>
+              )}
+              <FormMessage />
+            </FormItem>
           )}
-        </Button>
-      </div>
-    </form>
+        />
+
+        <div className="space-y-2">
+          <FormLabel className="text-slate-300">Email</FormLabel>
+          <Input
+            value={email}
+            disabled
+            className="bg-slate-800/50 border-slate-700 text-slate-400"
+          />
+          <p className="text-xs text-slate-500">
+            Email is managed through your authentication provider.
+          </p>
+        </div>
+
+        {form.formState.errors.root && (
+          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+            {form.formState.errors.root.message}
+          </div>
+        )}
+
+        <div className="pt-2">
+          <Button
+            type="submit"
+            disabled={isSubmitting || !isDirty}
+            className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:opacity-50"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="mr-2 h-4 w-4" />
+                Save Changes
+              </>
+            )}
+          </Button>
+        </div>
+      </form>
+    </Form>
   )
 }

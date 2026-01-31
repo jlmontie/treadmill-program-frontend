@@ -24,7 +24,7 @@ export function StartWorkoutButton({
     setError(null)
     startTransition(async () => {
       const result = await startWorkoutForAthlete(athleteProgramId, programId, currentWorkoutNumber)
-      if (result?.error) {
+      if (!result.success) {
         setError(result.error)
         toast.error('Failed to start workout', {
           description: result.error,

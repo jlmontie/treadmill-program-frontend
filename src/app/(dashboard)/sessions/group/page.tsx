@@ -61,7 +61,16 @@ export default async function GroupSessionPage() {
     .order('started_at', { ascending: false })
     .limit(5)
 
-  const activeWorkouts: ActiveWorkout[] = ((activeSessions || []) as any[]).map((s) => ({
+  const activeWorkouts: ActiveWorkout[] = (activeSessions || []).map((s: {
+    id: string
+    status: string
+    started_at: string | null
+    athlete_program_id: string
+    program_workout_id: number
+    athlete_programs: { athletes: { id: string; name: string } | null } | null
+    program_workouts: { workout_number: number; programs: { name: string } | null; workout_exercises: { id: number }[] | null } | null
+    exercise_results: { id: string }[] | null
+  }) => ({
     id: s.id,
     status: s.status,
     started_at: s.started_at,
@@ -90,9 +99,14 @@ export default async function GroupSessionPage() {
     .eq('status', 'active')
     .not('athletes.id', 'in', activeAthleteIds.length > 0 ? `(${activeAthleteIds.join(',')})` : '(00000000-0000-0000-0000-000000000000)')
 
-  const available: AvailableAthlete[] = ((availableAthletes || []) as any[])
-    .filter(ap => ap.athletes && !activeAthleteIds.includes(ap.athletes.id))
-    .map((ap) => ({
+  const available: AvailableAthlete[] = (availableAthletes || [])
+    .filter((ap: { athletes: { id: string } | null }) => ap.athletes && !activeAthleteIds.includes(ap.athletes.id))
+    .map((ap: { 
+      id: string
+      current_workout_number: number | null
+      athletes: { id: string; name: string; gender: string } 
+      programs: { id: number; name: string } | null
+    }) => ({
       id: ap.athletes.id,
       name: ap.athletes.name,
       gender: ap.athletes.gender,

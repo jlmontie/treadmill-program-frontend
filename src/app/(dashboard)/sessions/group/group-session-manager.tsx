@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -18,19 +18,14 @@ import {
 } from '@/components/ui/dialog'
 import { 
   Plus, 
-  X, 
   Wifi, 
   WifiOff, 
-  ChevronDown, 
-  ChevronUp,
   Play,
   Dumbbell,
-  Clock,
   Check,
   AlertCircle,
   Search,
-  Loader2,
-  CheckCircle2
+  Loader2
 } from 'lucide-react'
 import { AthleteWorkoutCard } from './athlete-workout-card'
 import { startWorkoutForGroup } from './actions'
@@ -103,6 +98,60 @@ export function GroupSessionManager({ activeWorkouts: initialWorkouts, available
     }
   }, [addDialogOpen])
 
+  // Memoize refreshWorkouts to avoid recreating on every render
+  const refreshWorkouts = useCallback(async () => {
+    const { data } = await supabase
+      .from('workout_sessions')
+      .select(`
+        id,
+        status,
+        started_at,
+        athlete_program_id,
+        program_workout_id,
+        athlete_programs (
+          id,
+          athletes (id, name),
+          current_workout_number
+        ),
+        program_workouts (
+          workout_number,
+          programs (name),
+          workout_exercises (id)
+        ),
+        exercise_results (id)
+      `)
+      .eq('status', 'in_progress')
+      .order('started_at', { ascending: false })
+      .limit(5)
+
+    if (data) {
+      const formatted = data.map((s: {
+        id: string
+        status: string
+        started_at: string | null
+        athlete_program_id: string
+        program_workout_id: number
+        athlete_programs: { athletes: { id: string; name: string } | null } | null
+        program_workouts: { workout_number: number; programs: { name: string } | null; workout_exercises: { id: number }[] | null } | null
+        exercise_results: { id: string }[] | null
+      }) => ({
+        id: s.id,
+        status: s.status,
+        started_at: s.started_at,
+        athlete_program_id: s.athlete_program_id,
+        program_workout_id: s.program_workout_id,
+        athlete_name: s.athlete_programs?.athletes?.name || 'Unknown',
+        athlete_id: s.athlete_programs?.athletes?.id || '',
+        workout_number: s.program_workouts?.workout_number || 0,
+        program_name: s.program_workouts?.programs?.name || 'Unknown',
+        current_exercise: (s.exercise_results?.length || 0) + 1,
+        total_exercises: s.program_workouts?.workout_exercises?.length || 0,
+        completed_exercises: s.exercise_results?.length || 0,
+      }))
+      setWorkouts(formatted)
+    }
+  }, [supabase])
+
   useEffect(() => {
     // Subscribe to workout session changes
     const channel = supabase
@@ -136,51 +185,7 @@ export function GroupSessionManager({ activeWorkouts: initialWorkouts, available
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [])
-
-  const refreshWorkouts = async () => {
-    const { data } = await supabase
-      .from('workout_sessions')
-      .select(`
-        id,
-        status,
-        started_at,
-        athlete_program_id,
-        program_workout_id,
-        athlete_programs (
-          id,
-          athletes (id, name),
-          current_workout_number
-        ),
-        program_workouts (
-          workout_number,
-          programs (name),
-          workout_exercises (id)
-        ),
-        exercise_results (id)
-      `)
-      .eq('status', 'in_progress')
-      .order('started_at', { ascending: false })
-      .limit(5)
-
-    if (data) {
-      const formatted = (data as any[]).map((s) => ({
-        id: s.id,
-        status: s.status,
-        started_at: s.started_at,
-        athlete_program_id: s.athlete_program_id,
-        program_workout_id: s.program_workout_id,
-        athlete_name: s.athlete_programs?.athletes?.name || 'Unknown',
-        athlete_id: s.athlete_programs?.athletes?.id || '',
-        workout_number: s.program_workouts?.workout_number || 0,
-        program_name: s.program_workouts?.programs?.name || 'Unknown',
-        current_exercise: (s.exercise_results?.length || 0) + 1,
-        total_exercises: s.program_workouts?.workout_exercises?.length || 0,
-        completed_exercises: s.exercise_results?.length || 0,
-      }))
-      setWorkouts(formatted)
-    }
-  }
+  }, [supabase, refreshWorkouts])
 
   const toggleAthleteSelection = (athleteId: string) => {
     setSelectedAthletes(prev => {
@@ -207,19 +212,25 @@ export function GroupSessionManager({ activeWorkouts: initialWorkouts, available
       for (const athleteId of selectedList) {
         const athlete = athletesAvailableToAdd.find(a => a.id === athleteId)
         if (athlete?.athlete_program_id) {
-          console.log('Starting workout for:', athlete.name, 'program ID:', athlete.athlete_program_id)
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Starting workout for:', athlete.name, 'program ID:', athlete.athlete_program_id)
+          }
           const result = await startWorkoutForGroup(athlete.athlete_program_id)
-          console.log('Result:', result)
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Result:', result)
+          }
           if (!result.success) {
             errors.push(`${athlete.name}: ${result.error}`)
           }
-        } else {
+        } else if (process.env.NODE_ENV === 'development') {
           console.log('No athlete_program_id for:', athlete?.name)
         }
       }
       
       if (errors.length > 0) {
-        console.error('Errors starting workouts:', errors)
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Errors starting workouts:', errors)
+        }
         alert(`Some workouts failed to start:\n${errors.join('\n')}`)
       }
       
@@ -228,8 +239,10 @@ export function GroupSessionManager({ activeWorkouts: initialWorkouts, available
       router.refresh()
       setAddDialogOpen(false)
     } catch (error) {
-      console.error('Failed to start workouts:', error)
-      alert('Failed to start workouts. Check console for details.')
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to start workouts:', error)
+      }
+      alert('Failed to start workouts. Please try again.')
     } finally {
       setIsStartingWorkouts(false)
     }
@@ -318,7 +331,7 @@ export function GroupSessionManager({ activeWorkouts: initialWorkouts, available
               ) : filteredAthletes.length === 0 ? (
                 <div className="text-center py-8 text-slate-400">
                   <Search className="h-12 w-12 mx-auto mb-3 text-slate-600" />
-                  <p>No athletes match "{searchQuery}"</p>
+                  <p>No athletes match &quot;{searchQuery}&quot;</p>
                 </div>
               ) : (
                 filteredAthletes.map((athlete) => {

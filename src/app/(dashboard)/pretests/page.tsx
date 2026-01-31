@@ -6,6 +6,12 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { Plus, ClipboardCheck } from 'lucide-react'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Pre-Tests | TreadTrack',
+  description: 'Administer diagnostic pre-tests to evaluate athlete capacity',
+}
 
 interface PretestSession {
   id: string

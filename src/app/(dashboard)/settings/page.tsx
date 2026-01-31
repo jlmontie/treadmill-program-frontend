@@ -5,6 +5,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Settings, User, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { ProfileForm } from './profile-form'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Settings | TreadTrack',
+  description: 'Manage your account and application preferences',
+}
 
 export default async function SettingsPage({
   searchParams,

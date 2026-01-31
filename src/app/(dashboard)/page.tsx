@@ -5,6 +5,12 @@ import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { Users, Dumbbell, ClipboardCheck, TrendingUp, Plus, Play } from 'lucide-react'
 import { ActiveSessions } from '@/components/dashboard/active-sessions'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Dashboard | TreadTrack',
+  description: 'Overview of your treadmill training program',
+}
 
 export const dynamic = 'force-dynamic'
 

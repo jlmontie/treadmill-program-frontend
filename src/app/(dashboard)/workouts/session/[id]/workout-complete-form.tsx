@@ -1,20 +1,29 @@
 'use client'
 
-import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { Label } from '@/components/ui/label'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
 import { Trophy, Clock, Dumbbell, CheckCircle2, Loader2 } from 'lucide-react'
 import { completeWorkout } from '../../actions'
+import { workoutCompleteFormSchema, type WorkoutCompleteFormInput, type WorkoutCompleteFormValues } from '@/lib/validations/forms'
 
 interface WorkoutCompleteFormProps {
   sessionId: string
   athleteName: string
   workoutNumber: number
   exerciseCount: number
-  elapsedMinutes: number
+  startedAt: string | null
 }
 
 export function WorkoutCompleteForm({ 
@@ -22,17 +31,26 @@ export function WorkoutCompleteForm({
   athleteName, 
   workoutNumber,
   exerciseCount,
-  elapsedMinutes 
+  startedAt 
 }: WorkoutCompleteFormProps) {
+  // Calculate elapsed time client-side
+  const elapsedMinutes = startedAt 
+    ? Math.floor((new Date().getTime() - new Date(startedAt).getTime()) / 60000)
+    : 0
   const router = useRouter()
-  const [isPending, startTransition] = useTransition()
-  const [notes, setNotes] = useState('')
 
-  const handleComplete = () => {
-    startTransition(async () => {
-      await completeWorkout(sessionId, notes || undefined)
-      router.refresh()
-    })
+  const form = useForm<WorkoutCompleteFormInput>({
+    resolver: zodResolver(workoutCompleteFormSchema),
+    defaultValues: {
+      notes: '',
+    },
+  })
+
+  const { isSubmitting } = form.formState
+
+  const onSubmit = async (values: WorkoutCompleteFormValues) => {
+    await completeWorkout(sessionId, values.notes.trim() || undefined)
+    router.refresh()
   }
 
   return (
@@ -64,40 +82,51 @@ export function WorkoutCompleteForm({
         </div>
 
         {/* Session Notes */}
-        <div className="space-y-2">
-          <Label htmlFor="notes" className="text-slate-300">
-            Session Notes (optional)
-          </Label>
-          <Textarea
-            id="notes"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Overall observations, athlete feedback, or notes for next session..."
-            className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-emerald-500"
-            rows={3}
-            disabled={isPending}
-          />
-        </div>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-slate-300">
+                    Session Notes (optional)
+                  </FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Overall observations, athlete feedback, or notes for next session..."
+                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-emerald-500"
+                      rows={3}
+                      disabled={isSubmitting}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-        {/* Complete Button */}
-        <Button
-          onClick={handleComplete}
-          disabled={isPending}
-          size="lg"
-          className="w-full bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-lg py-6 shadow-lg shadow-emerald-500/25"
-        >
-          {isPending ? (
-            <>
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              Completing...
-            </>
-          ) : (
-            <>
-              <CheckCircle2 className="mr-2 h-5 w-5" />
-              Complete Workout
-            </>
-          )}
-        </Button>
+            {/* Complete Button */}
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              size="lg"
+              className="w-full bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-lg py-6 shadow-lg shadow-emerald-500/25"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Completing...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="mr-2 h-5 w-5" />
+                  Complete Workout
+                </>
+              )}
+            </Button>
+          </form>
+        </Form>
       </CardContent>
     </Card>
   )

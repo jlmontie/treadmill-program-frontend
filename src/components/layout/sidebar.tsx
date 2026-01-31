@@ -18,17 +18,17 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 
 const navigation = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Group Session', href: '/sessions/group', icon: UsersRound, highlight: true },
-  { name: 'Athletes', href: '/athletes', icon: Users },
-  { name: 'Pre-Tests', href: '/pretests', icon: ClipboardCheck },
-  { name: 'Workouts', href: '/workouts', icon: Dumbbell },
-  { name: 'Programs', href: '/programs', icon: Library },
-]
+  { name: 'Dashboard', href: '/' as const, icon: LayoutDashboard },
+  { name: 'Group Session', href: '/sessions/group' as const, icon: UsersRound, highlight: true },
+  { name: 'Athletes', href: '/athletes' as const, icon: Users },
+  { name: 'Pre-Tests', href: '/pretests' as const, icon: ClipboardCheck },
+  { name: 'Workouts', href: '/workouts' as const, icon: Dumbbell },
+  { name: 'Programs', href: '/programs' as const, icon: Library },
+] as const
 
 const secondaryNavigation = [
-  { name: 'Settings', href: '/settings', icon: Settings },
-]
+  { name: 'Settings', href: '/settings' as const, icon: Settings },
+] as const
 
 export function Sidebar() {
   const pathname = usePathname()

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -10,7 +10,6 @@ import {
   Activity, 
   Clock, 
   Dumbbell, 
-  User, 
   Play, 
   ChevronRight,
   Wifi,
@@ -39,46 +38,7 @@ export function ActiveSessions({ initialSessions }: ActiveSessionsProps) {
   const [isConnected, setIsConnected] = useState(false)
   const supabase = createClient()
 
-  useEffect(() => {
-    // Set up real-time subscription for workout sessions
-    const channel = supabase
-      .channel('active-workouts')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'workout_sessions',
-          filter: 'status=eq.in_progress',
-        },
-        async (payload) => {
-          console.log('Workout session change:', payload)
-          // Refresh sessions on any change
-          await refreshSessions()
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'exercise_results',
-        },
-        async () => {
-          // Refresh to update exercise counts
-          await refreshSessions()
-        }
-      )
-      .subscribe((status) => {
-        setIsConnected(status === 'SUBSCRIBED')
-      })
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [])
-
-  const refreshSessions = async () => {
+  const refreshSessions = useCallback(async () => {
     const { data } = await supabase
       .from('workout_sessions')
       .select(`
@@ -102,7 +62,23 @@ export function ActiveSessions({ initialSessions }: ActiveSessionsProps) {
       .limit(6)
 
     if (data) {
-      const formatted = data.map((s: any) => ({
+      // Type the session data properly
+      type SessionData = {
+        id: string
+        status: string
+        started_at: string | null
+        athlete_program_id: string
+        program_workout_id: number
+        athlete_programs: { athletes: { name: string } | null } | null
+        program_workouts: {
+          workout_number: number
+          programs: { name: string } | null
+          workout_exercises: { id: number }[] | null
+        } | null
+        exercise_results: { id: string }[] | null
+      }
+      
+      const formatted = (data as SessionData[]).map((s) => ({
         id: s.id,
         status: s.status,
         started_at: s.started_at,
@@ -116,21 +92,59 @@ export function ActiveSessions({ initialSessions }: ActiveSessionsProps) {
       }))
       setSessions(formatted)
     }
-  }
+  }, [supabase])
 
-  const getElapsedTime = (startedAt: string | null) => {
+  useEffect(() => {
+    // Set up real-time subscription for workout sessions
+    const channel = supabase
+      .channel('active-workouts')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'workout_sessions',
+          filter: 'status=eq.in_progress',
+        },
+        async () => {
+          // Refresh sessions on any change
+          await refreshSessions()
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'exercise_results',
+        },
+        async () => {
+          // Refresh to update exercise counts
+          await refreshSessions()
+        }
+      )
+      .subscribe((status) => {
+        setIsConnected(status === 'SUBSCRIBED')
+      })
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [supabase, refreshSessions])
+
+  const getElapsedTime = useCallback((startedAt: string | null) => {
     if (!startedAt) return '0 min'
     const elapsed = Math.floor((Date.now() - new Date(startedAt).getTime()) / 60000)
     if (elapsed < 60) return `${elapsed} min`
     const hours = Math.floor(elapsed / 60)
     const mins = elapsed % 60
     return `${hours}h ${mins}m`
-  }
+  }, [])
 
-  const getProgressPercent = (completed: number, total: number) => {
+  const getProgressPercent = useCallback((completed: number, total: number) => {
     if (total === 0) return 0
     return Math.round((completed / total) * 100)
-  }
+  }, [])
 
   if (sessions.length === 0) {
     return (
@@ -186,7 +200,7 @@ export function ActiveSessions({ initialSessions }: ActiveSessionsProps) {
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="text-white flex items-center gap-2">
-              <Activity className="h-5 w-5 text-emerald-400 animate-pulse" />
+              <Activity className="h-5 w-5 text-emerald-400 animate-pulse" aria-hidden="true" />
               Active Sessions
               <Badge className="ml-2 bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
                 {sessions.length}
@@ -195,6 +209,10 @@ export function ActiveSessions({ initialSessions }: ActiveSessionsProps) {
             <CardDescription className="text-slate-400">
               Real-time workout monitoring
             </CardDescription>
+            {/* Screen reader announcement for real-time updates */}
+            <div className="sr-only" aria-live="polite" aria-atomic="true">
+              {sessions.length} active workout {sessions.length === 1 ? 'session' : 'sessions'}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             {isConnected ? (

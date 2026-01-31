@@ -6,6 +6,12 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { Play, Dumbbell } from 'lucide-react'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Workouts | TreadTrack',
+  description: 'View and manage workout sessions',
+}
 
 interface WorkoutSession {
   id: string

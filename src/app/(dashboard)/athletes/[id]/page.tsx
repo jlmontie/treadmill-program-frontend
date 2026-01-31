@@ -10,9 +10,34 @@ import { ArrowLeft, Edit, ClipboardCheck, Calendar, User, Dumbbell, Heart } from
 import { AssignProgramForm } from './assign-program-form'
 import { StartWorkoutButton } from './start-workout-button'
 import { MetabolicTestForm } from './metabolic-test-form'
+import type { Metadata } from 'next'
 
 interface AthleteDetailPageProps {
   params: Promise<{ id: string }>
+}
+
+export async function generateMetadata({ params }: AthleteDetailPageProps): Promise<Metadata> {
+  const { id } = await params
+  const supabase = await createClient()
+  
+  const { data: athlete } = await supabase
+    .from('athletes')
+    .select('name, sport')
+    .eq('id', id)
+    .single()
+
+  if (!athlete) {
+    return {
+      title: 'Athlete Not Found | TreadTrack',
+    }
+  }
+
+  return {
+    title: `${athlete.name} | TreadTrack`,
+    description: athlete.sport 
+      ? `Training profile for ${athlete.name} - ${athlete.sport}`
+      : `Training profile for ${athlete.name}`,
+  }
 }
 
 interface Program {

@@ -101,7 +101,7 @@ export function ExerciseCard({ sessionId, exercise, athleteGender, isCurrentExer
         notes || undefined
       )
       
-      if (result.error) {
+      if (!result.success) {
         setError(result.error)
       } else {
         setSelectedLevel(null)

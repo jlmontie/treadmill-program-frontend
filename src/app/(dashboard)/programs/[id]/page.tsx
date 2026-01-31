@@ -13,9 +13,38 @@ import {
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { ArrowLeft, Dumbbell } from 'lucide-react'
+import type { Metadata } from 'next'
 
 interface ProgramDetailPageProps {
   params: Promise<{ id: string }>
+}
+
+export async function generateMetadata({ params }: ProgramDetailPageProps): Promise<Metadata> {
+  const { id } = await params
+  const programId = parseInt(id, 10)
+  
+  if (isNaN(programId)) {
+    return { title: 'Invalid Program | TreadTrack' }
+  }
+  
+  const supabase = await createClient()
+  
+  const { data: program } = await supabase
+    .from('programs')
+    .select('name, athlete_type, level')
+    .eq('id', programId)
+    .single()
+
+  if (!program) {
+    return {
+      title: 'Program Not Found | TreadTrack',
+    }
+  }
+
+  return {
+    title: `${program.name} | TreadTrack`,
+    description: `${program.athlete_type} ${program.level} training program`,
+  }
 }
 
 interface ProgramWorkout {
@@ -49,6 +78,12 @@ interface ProgramWithWorkouts {
 
 export default async function ProgramDetailPage({ params }: ProgramDetailPageProps) {
   const { id } = await params
+  const programId = parseInt(id, 10)
+  
+  if (isNaN(programId)) {
+    notFound()
+  }
+  
   const supabase = await createClient()
 
   const { data, error } = await supabase
@@ -73,7 +108,7 @@ export default async function ProgramDetailPage({ params }: ProgramDetailPagePro
         )
       )
     `)
-    .eq('id', id)
+    .eq('id', programId)
     .single()
 
   if (error || !data) {

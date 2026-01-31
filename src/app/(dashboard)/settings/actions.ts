@@ -1,58 +1,77 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { getAuthenticatedClient } from '@/lib/supabase/auth'
 import { revalidatePath } from 'next/cache'
+import { z } from 'zod'
+import { type ActionResult, failure, successVoid } from '@/lib/types/actions'
 
-export async function updateTrainerProfile(formData: FormData): Promise<{ success?: boolean; error?: string }> {
-  const supabase = await createClient()
+const TrainerProfileSchema = z.object({
+  name: z.string()
+    .min(1, 'Name is required')
+    .max(100, 'Name must be 100 characters or less')
+    .transform(s => s.trim()),
+})
 
-  const name = formData.get('name') as string
-
-  if (!name || name.trim().length === 0) {
-    return { error: 'Name is required' }
+export async function updateTrainerProfile(formData: FormData): Promise<ActionResult<void>> {
+  // Authenticate (note: we use getAuthenticatedClient here since the trainer profile may not exist yet)
+  let supabase, user
+  try {
+    const result = await getAuthenticatedClient()
+    supabase = result.supabase
+    user = result.user
+  } catch {
+    return failure('You must be logged in to update your profile')
   }
 
-  // Get current user
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return { error: 'Not authenticated' }
+  // Validate input
+  const validated = TrainerProfileSchema.safeParse({
+    name: formData.get('name'),
+  })
+
+  if (!validated.success) {
+    const firstError = Object.values(validated.error.flatten().fieldErrors).flat()[0] || 'Invalid input'
+    return failure(firstError)
   }
+
+  const { name } = validated.data
 
   // Check if trainer profile exists
   const { data: existingTrainer } = await supabase
     .from('trainers')
     .select('id')
     .eq('auth_user_id', user.id)
-    .single() as { data: { id: string } | null }
+    .single()
 
   if (existingTrainer) {
     // Update existing trainer
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from('trainers')
-      .update({ name: name.trim() })
+      .update({ name })
       .eq('auth_user_id', user.id)
 
     if (error) {
-      return { error: error.message }
+      return failure(error.message)
     }
   } else {
     // Create new trainer profile
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase as any)
+    if (!user.email) {
+      return failure('User email is required to create a trainer profile')
+    }
+    
+    const { error } = await supabase
       .from('trainers')
       .insert({
         auth_user_id: user.id,
         email: user.email,
-        name: name.trim(),
+        name,
       })
 
     if (error) {
-      return { error: error.message }
+      return failure(error.message)
     }
   }
 
   revalidatePath('/settings')
   revalidatePath('/') // Refresh header with new name
-  return { success: true }
+  return successVoid()
 }

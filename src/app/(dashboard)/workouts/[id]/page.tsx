@@ -18,8 +18,53 @@ import {
   AlertTriangle
 } from 'lucide-react'
 import { analyzeSpeedColumnUsage, isWorkout3 } from '@/lib/workout-adjustment'
+import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
+
+interface WorkoutDetailPageProps {
+  params: Promise<{ id: string }>
+}
+
+export async function generateMetadata({ params }: WorkoutDetailPageProps): Promise<Metadata> {
+  const { id } = await params
+  const supabase = await createClient()
+  
+  const { data } = await supabase
+    .from('workout_sessions')
+    .select(`
+      status,
+      athlete_programs (
+        athletes (name)
+      ),
+      program_workouts (
+        workout_number,
+        programs (name)
+      )
+    `)
+    .eq('id', id)
+    .single()
+
+  if (!data) {
+    return {
+      title: 'Workout Not Found | TreadTrack',
+    }
+  }
+
+  const session = data as {
+    status: string
+    athlete_programs: { athletes: { name: string } | null } | null
+    program_workouts: { workout_number: number; programs: { name: string } | null } | null
+  }
+
+  const athleteName = session.athlete_programs?.athletes?.name || 'Unknown'
+  const workoutNum = session.program_workouts?.workout_number || 0
+
+  return {
+    title: `Workout ${workoutNum} - ${athleteName} | TreadTrack`,
+    description: `Workout session results for ${athleteName}`,
+  }
+}
 
 interface WorkoutExercise {
   id: number

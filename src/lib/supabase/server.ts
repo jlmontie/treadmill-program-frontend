@@ -2,6 +2,13 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import type { Database } from '@/lib/types/database'
 
+/**
+ * Creates a typed Supabase client for server-side operations.
+ * 
+ * The Database type is generated from the actual database schema.
+ * To regenerate types:
+ * npx supabase gen types typescript --project-id gsrtyjlsdnmocrdjeypw > src/lib/types/database.ts
+ */
 export async function createClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY

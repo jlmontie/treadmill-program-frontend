@@ -29,8 +29,48 @@ import {
   type CompletionLevel,
   type PretestTypeCode
 } from '@/lib/pretest-flow'
+import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
+
+interface PretestDetailPageProps {
+  params: Promise<{ id: string }>
+}
+
+export async function generateMetadata({ params }: PretestDetailPageProps): Promise<Metadata> {
+  const { id } = await params
+  const supabase = await createClient()
+  
+  const { data } = await supabase
+    .from('pretest_sessions')
+    .select(`
+      status,
+      athletes (name),
+      pretest_types (name)
+    `)
+    .eq('id', id)
+    .single()
+
+  if (!data) {
+    return {
+      title: 'Pre-Test Not Found | TreadTrack',
+    }
+  }
+
+  const session = data as {
+    status: string
+    athletes: { name: string } | null
+    pretest_types: { name: string } | null
+  }
+
+  const athleteName = session.athletes?.name || 'Unknown'
+  const testType = session.pretest_types?.name || 'Pre-Test'
+
+  return {
+    title: `${testType} - ${athleteName} | TreadTrack`,
+    description: `Pre-test results for ${athleteName}`,
+  }
+}
 
 interface PretestStep {
   id: number

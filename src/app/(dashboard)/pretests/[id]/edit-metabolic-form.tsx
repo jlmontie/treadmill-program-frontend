@@ -1,11 +1,20 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
 import { 
   Dialog, 
   DialogContent, 
@@ -16,6 +25,7 @@ import {
 } from '@/components/ui/dialog'
 import { Pencil, Loader2, Save, Heart, Activity, Timer } from 'lucide-react'
 import { updateMetabolicResults } from '../actions'
+import { editMetabolicFormSchema, type EditMetabolicFormValues } from '@/lib/validations/forms'
 
 interface EditMetabolicFormProps {
   sessionId: string
@@ -29,36 +39,36 @@ interface EditMetabolicFormProps {
 
 export function EditMetabolicForm({ sessionId, currentData }: EditMetabolicFormProps) {
   const router = useRouter()
-  const [isPending, startTransition] = useTransition()
   const [open, setOpen] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
-  const [atHr, setAtHr] = useState(currentData?.at_hr?.toString() || '')
-  const [maxHr, setMaxHr] = useState(currentData?.max_hr?.toString() || '')
-  const [recoveryHr, setRecoveryHr] = useState(currentData?.recovery_hr_2min?.toString() || '')
-  const [notes, setNotes] = useState(currentData?.notes || '')
+  const form = useForm<EditMetabolicFormValues>({
+    resolver: zodResolver(editMetabolicFormSchema),
+    defaultValues: {
+      at_hr: currentData?.at_hr?.toString() ?? '',
+      max_hr: currentData?.max_hr?.toString() ?? '',
+      recovery_hr_2min: currentData?.recovery_hr_2min?.toString() ?? '',
+      notes: currentData?.notes ?? '',
+    },
+  })
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
+  const { isSubmitting } = form.formState
 
+  const onSubmit = async (values: EditMetabolicFormValues) => {
     const formData = new FormData()
     formData.set('session_id', sessionId)
-    formData.set('at_hr', atHr)
-    formData.set('max_hr', maxHr)
-    formData.set('recovery_hr_2min', recoveryHr)
-    formData.set('notes', notes)
+    formData.set('at_hr', values.at_hr)
+    formData.set('max_hr', values.max_hr)
+    formData.set('recovery_hr_2min', values.recovery_hr_2min)
+    formData.set('notes', values.notes)
 
-    startTransition(async () => {
-      const result = await updateMetabolicResults(formData)
-      
-      if (result.error) {
-        setError(result.error)
-      } else {
-        setOpen(false)
-        router.refresh()
-      }
-    })
+    const result = await updateMetabolicResults(formData)
+    
+    if (!result.success) {
+      form.setError('root', { message: result.error })
+    } else {
+      setOpen(false)
+      router.refresh()
+    }
   }
 
   return (
@@ -76,111 +86,147 @@ export function EditMetabolicForm({ sessionId, currentData }: EditMetabolicFormP
             Update the heart rate measurements for this pre-test.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="at_hr" className="text-slate-300 flex items-center gap-2">
-                <Activity className="h-4 w-4 text-cyan-400" />
-                AT HR (bpm)
-              </Label>
-              <Input
-                id="at_hr"
-                type="number"
-                min="60"
-                max="220"
-                value={atHr}
-                onChange={(e) => setAtHr(e.target.value)}
-                placeholder="165"
-                className="bg-slate-800/50 border-slate-700 text-white"
-                disabled={isPending}
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <div className="grid grid-cols-3 gap-4">
+              <FormField
+                control={form.control}
+                name="at_hr"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-slate-300 flex items-center gap-2">
+                      <Activity className="h-4 w-4 text-cyan-400" />
+                      AT HR (bpm)
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={60}
+                        max={220}
+                        placeholder="165"
+                        className="bg-slate-800/50 border-slate-700 text-white"
+                        disabled={isSubmitting}
+                        {...field}
+                        onChange={(e) => field.onChange(e.target.value)}
+                        value={field.value}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="max_hr"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-slate-300 flex items-center gap-2">
+                      <Heart className="h-4 w-4 text-rose-400" />
+                      Max HR (bpm)
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={60}
+                        max={220}
+                        placeholder="185"
+                        className="bg-slate-800/50 border-slate-700 text-white"
+                        disabled={isSubmitting}
+                        {...field}
+                        onChange={(e) => field.onChange(e.target.value)}
+                        value={field.value}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="recovery_hr_2min"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-slate-300 flex items-center gap-2">
+                      <Timer className="h-4 w-4 text-violet-400" />
+                      Recovery HR (2m)
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={60}
+                        max={220}
+                        placeholder="120"
+                        className="bg-slate-800/50 border-slate-700 text-white"
+                        disabled={isSubmitting}
+                        {...field}
+                        onChange={(e) => field.onChange(e.target.value)}
+                        value={field.value}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="max_hr" className="text-slate-300 flex items-center gap-2">
-                <Heart className="h-4 w-4 text-rose-400" />
-                Max HR (bpm)
-              </Label>
-              <Input
-                id="max_hr"
-                type="number"
-                min="60"
-                max="220"
-                value={maxHr}
-                onChange={(e) => setMaxHr(e.target.value)}
-                placeholder="185"
-                className="bg-slate-800/50 border-slate-700 text-white"
-                disabled={isPending}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="recovery_hr" className="text-slate-300 flex items-center gap-2">
-                <Timer className="h-4 w-4 text-violet-400" />
-                Recovery HR (2m)
-              </Label>
-              <Input
-                id="recovery_hr"
-                type="number"
-                min="60"
-                max="220"
-                value={recoveryHr}
-                onChange={(e) => setRecoveryHr(e.target.value)}
-                placeholder="120"
-                className="bg-slate-800/50 border-slate-700 text-white"
-                disabled={isPending}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="notes" className="text-slate-300">Notes</Label>
-            <Textarea
-              id="notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Any additional observations..."
-              className="bg-slate-800/50 border-slate-700 text-white"
-              rows={2}
-              disabled={isPending}
-            />
-          </div>
-
-          {error && (
-            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
-              {error}
-            </div>
-          )}
-
-          <div className="flex justify-end gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-              className="border-slate-700 text-slate-300 hover:bg-slate-800"
-              disabled={isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={isPending}
-              className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500"
-            >
-              {isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="mr-2 h-4 w-4" />
-                  Save Changes
-                </>
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-slate-300">Notes</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Any additional observations..."
+                      className="bg-slate-800/50 border-slate-700 text-white"
+                      rows={2}
+                      disabled={isSubmitting}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
               )}
-            </Button>
-          </div>
-        </form>
+            />
+
+            {form.formState.errors.root && (
+              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+                {form.formState.errors.root.message}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+                className="border-slate-700 text-slate-300 hover:bg-slate-800"
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Changes
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   )

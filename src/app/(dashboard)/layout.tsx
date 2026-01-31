@@ -30,6 +30,14 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex h-screen bg-slate-950">
+      {/* Skip to main content link for accessibility */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-cyan-600 focus:text-white focus:rounded-md focus:outline-none focus:ring-2 focus:ring-cyan-400"
+      >
+        Skip to main content
+      </a>
+      
       {/* Sidebar - hidden on mobile */}
       <div className="hidden lg:flex lg:flex-shrink-0">
         <Sidebar />
@@ -42,7 +50,7 @@ export default async function DashboardLayout({
           trainerEmail={trainer?.email || user.email} 
         />
         
-        <main className="flex-1 overflow-y-auto">
+        <main id="main-content" className="flex-1 overflow-y-auto" tabIndex={-1}>
           <div className="container mx-auto px-6 py-8">
             {children}
           </div>

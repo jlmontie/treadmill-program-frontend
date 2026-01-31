@@ -12,6 +12,12 @@ import {
 } from '@/components/ui/table'
 import Link from 'next/link'
 import { Plus, Users } from 'lucide-react'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Athletes | TreadTrack',
+  description: 'Manage your athletes and their training programs',
+}
 
 interface AthleteWithPrograms {
   id: string
@@ -41,7 +47,7 @@ export default async function AthletesPage() {
     `)
     .order('name', { ascending: true })
 
-  if (error) {
+  if (error && process.env.NODE_ENV === 'development') {
     console.error('Error fetching athletes:', error)
   }
 

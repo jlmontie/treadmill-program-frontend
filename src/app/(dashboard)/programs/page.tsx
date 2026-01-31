@@ -3,6 +3,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { Library } from 'lucide-react'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Programs | TreadTrack',
+  description: 'Browse all available training programs',
+}
 
 interface Program {
   id: number
@@ -23,7 +29,7 @@ export default async function ProgramsPage() {
     .order('athlete_type', { ascending: true })
     .order('level', { ascending: true })
 
-  if (error) {
+  if (error && process.env.NODE_ENV === 'development') {
     console.error('Error fetching programs:', error)
   }
 

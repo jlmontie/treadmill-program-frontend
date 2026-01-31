@@ -127,11 +127,8 @@ export default async function WorkoutSessionPage({
   const currentExerciseIndex = exercises.findIndex((ex) => !resultsByExercise.has(ex.id))
   const currentExercise = currentExerciseIndex >= 0 ? exercises[currentExerciseIndex] : null
 
-  // Calculate elapsed time
-  const startTime = typedSession.started_at ? new Date(typedSession.started_at) : null
-  const elapsedMinutes = startTime 
-    ? Math.floor((Date.now() - startTime.getTime()) / 60000)
-    : 0
+  // Pass start time to client components for elapsed calculation
+  const startedAt = typedSession.started_at
 
   return (
     <RealtimeSession sessionId={id}>
@@ -194,7 +191,7 @@ export default async function WorkoutSessionPage({
               <div className="flex items-center gap-2">
                 <Clock className="h-5 w-5 text-violet-400" />
                 <span className="text-slate-300">
-                  {elapsedMinutes} min elapsed
+                  In Progress
                 </span>
               </div>
             </div>
@@ -218,7 +215,7 @@ export default async function WorkoutSessionPage({
           athleteName={athlete?.name || 'Athlete'} 
           workoutNumber={workout?.workout_number || 0}
           exerciseCount={totalCount}
-          elapsedMinutes={elapsedMinutes}
+          startedAt={startedAt}
         />
       ) : (
         <>

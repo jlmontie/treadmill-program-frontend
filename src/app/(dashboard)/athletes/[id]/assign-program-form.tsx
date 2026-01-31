@@ -1,10 +1,19 @@
 'use client'
 
-import { useState, useTransition, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
 import { 
   Dialog, 
   DialogContent, 
@@ -20,9 +29,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus, Loader2, Dumbbell, AlertCircle } from 'lucide-react'
-import { toast } from 'sonner'
+import { Plus, Loader2, Dumbbell, AlertCircle, RefreshCw } from 'lucide-react'
 import { assignProgram } from '../actions'
+import { useRetryAction } from '@/hooks/use-retry-action'
+import { assignProgramFormSchema, type AssignProgramFormValues } from '@/lib/validations/forms'
 
 interface Program {
   id: number
@@ -52,11 +62,21 @@ export function AssignProgramForm({
 }: AssignProgramFormProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [isPending, startTransition] = useTransition()
   const [open, setOpen] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [selectedProgramId, setSelectedProgramId] = useState<string>('')
-  const [notes, setNotes] = useState('')
+  
+  // Use retry hook for automatic retry on network failures
+  const { execute, isPending, retryAttempt, error, clearError } = useRetryAction({
+    maxRetries: 2,
+    showRetryToasts: true,
+  })
+
+  const form = useForm({
+    resolver: zodResolver(assignProgramFormSchema),
+    defaultValues: {
+      program_id: '',
+      notes: '',
+    },
+  })
 
   // Auto-open dialog if ?assign=true is in URL
   useEffect(() => {
@@ -93,44 +113,28 @@ export function AssignProgramForm({
     return acc
   }, {} as Record<string, Program[]>)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
+  const selectedProgramId = form.watch('program_id')
+  const selectedProgram = programs.find(p => p.id.toString() === selectedProgramId)
 
-    if (!selectedProgramId) {
-      setError('Please select a program')
-      return
-    }
+  const onSubmit = async (values: AssignProgramFormValues) => {
+    clearError()
 
     const formData = new FormData()
     formData.set('athlete_id', athleteId)
-    formData.set('program_id', selectedProgramId)
+    formData.set('program_id', values.program_id)
     if (pretestSessionId) {
       formData.set('pretest_session_id', pretestSessionId)
     }
-    formData.set('notes', notes)
+    formData.set('notes', values.notes ?? '')
 
-    startTransition(async () => {
-      const result = await assignProgram(formData)
-      
-      if (result.error) {
-        setError(result.error)
-        toast.error('Failed to assign program', {
-          description: result.error,
-        })
-      } else {
-        setOpen(false)
-        setSelectedProgramId('')
-        setNotes('')
-        toast.success('Program assigned', {
-          description: `${selectedProgram?.name} assigned to ${athleteName}.`,
-        })
-        router.refresh()
-      }
-    })
+    const result = await execute(() => assignProgram(formData))
+    
+    if ('success' in result) {
+      setOpen(false)
+      form.reset()
+      router.refresh()
+    }
   }
-
-  const selectedProgram = programs.find(p => p.id.toString() === selectedProgramId)
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -163,104 +167,129 @@ export function AssignProgramForm({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="program" className="text-slate-300">
-              Program <span className="text-red-400">*</span>
-            </Label>
-            <Select value={selectedProgramId} onValueChange={setSelectedProgramId}>
-              <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white">
-                <SelectValue placeholder="Select a program" />
-              </SelectTrigger>
-              <SelectContent className="bg-slate-900 border-slate-700 max-h-80">
-                {Object.entries(groupedPrograms).map(([group, progs]) => (
-                  <div key={group}>
-                    <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 bg-slate-800/50">
-                      {group}
-                    </div>
-                    {progs.map((program) => (
-                      <SelectItem 
-                        key={program.id} 
-                        value={program.id.toString()}
-                        className="text-white focus:bg-slate-800"
-                      >
-                        <div className="flex items-center justify-between w-full">
-                          <span>{program.name}</span>
-                          <span className="text-xs text-slate-500 ml-2">
-                            {program.total_workouts} workouts
-                          </span>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="program_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-slate-300">
+                    Program <span className="text-red-400">*</span>
+                  </FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white">
+                        <SelectValue placeholder="Select a program" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent className="bg-slate-900 border-slate-700 max-h-80">
+                      {Object.entries(groupedPrograms).map(([group, progs]) => (
+                        <div key={group}>
+                          <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 bg-slate-800/50">
+                            {group}
+                          </div>
+                          {progs.map((program) => (
+                            <SelectItem 
+                              key={program.id} 
+                              value={program.id.toString()}
+                              className="text-white focus:bg-slate-800"
+                            >
+                              <div className="flex items-center justify-between w-full">
+                                <span>{program.name}</span>
+                                <span className="text-xs text-slate-500 ml-2">
+                                  {program.total_workouts} workouts
+                                </span>
+                              </div>
+                            </SelectItem>
+                          ))}
                         </div>
-                      </SelectItem>
-                    ))}
-                  </div>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {selectedProgram && (
-            <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700">
-              <div className="text-sm text-slate-400">Selected Program</div>
-              <div className="text-white font-medium">{selectedProgram.name}</div>
-              <div className="text-xs text-slate-500 mt-1">
-                {selectedProgram.total_workouts} workouts • {selectedProgram.level} level
-                {selectedProgram.metabolic_category !== 'standard' && (
-                  <span className="ml-1 text-amber-400">
-                    ({selectedProgram.metabolic_category.toUpperCase()})
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <Label htmlFor="notes" className="text-slate-300">Notes (optional)</Label>
-            <Textarea
-              id="notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Any notes about this program assignment..."
-              className="bg-slate-800/50 border-slate-700 text-white"
-              rows={2}
-              disabled={isPending}
-            />
-          </div>
-
-          {error && (
-            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
-              {error}
-            </div>
-          )}
-
-          <div className="flex justify-end gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-              className="border-slate-700 text-slate-300 hover:bg-slate-800"
-              disabled={isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={isPending || !selectedProgramId}
-              className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500"
-            >
-              {isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Assigning...
-                </>
-              ) : (
-                <>
-                  <Dumbbell className="mr-2 h-4 w-4" />
-                  Assign Program
-                </>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
               )}
-            </Button>
-          </div>
-        </form>
+            />
+
+            {selectedProgram && (
+              <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700">
+                <div className="text-sm text-slate-400">Selected Program</div>
+                <div className="text-white font-medium">{selectedProgram.name}</div>
+                <div className="text-xs text-slate-500 mt-1">
+                  {selectedProgram.total_workouts} workouts • {selectedProgram.level} level
+                  {selectedProgram.metabolic_category !== 'standard' && (
+                    <span className="ml-1 text-amber-400">
+                      ({selectedProgram.metabolic_category.toUpperCase()})
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-slate-300">Notes (optional)</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Any notes about this program assignment..."
+                      className="bg-slate-800/50 border-slate-700 text-white"
+                      rows={2}
+                      disabled={isPending}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {error && (
+              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+                {error}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+                className="border-slate-700 text-slate-300 hover:bg-slate-800"
+                disabled={isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isPending || !form.formState.isValid}
+                className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500"
+              >
+                {isPending ? (
+                  retryAttempt > 0 ? (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      Retrying ({retryAttempt})...
+                    </>
+                  ) : (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Assigning...
+                    </>
+                  )
+                ) : (
+                  <>
+                    <Dumbbell className="mr-2 h-4 w-4" />
+                    Assign Program
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   )

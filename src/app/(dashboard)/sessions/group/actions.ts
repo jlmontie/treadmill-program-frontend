@@ -1,27 +1,32 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { withAuth } from '@/lib/supabase/auth'
 import { revalidatePath } from 'next/cache'
+import { z } from 'zod'
+import { type ActionResult, failure, success, successVoid } from '@/lib/types/actions'
 
-export async function startWorkoutForGroup(athleteProgramId: string) {
-  const supabase = await createClient()
+// Validation schemas
+const UuidSchema = z.string().uuid('Invalid ID')
 
-  // Get current user's trainer ID
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return { success: false, error: 'Not authenticated' }
-  }
+const LogExerciseResultSchema = z.object({
+  workoutSessionId: z.string().uuid('Invalid workout session ID'),
+  workoutExerciseId: z.number().int().positive('Exercise ID must be a positive integer'),
+  completionLevel: z.enum(['complete', 'slight_touch', 'push', 'failure']),
+  speedColumnUsed: z.number().int().min(1).max(3).optional().nullable(),
+  actualSpeed: z.number().positive().optional().nullable(),
+  notes: z.string().max(500).transform(s => s.trim()).optional().nullable(),
+})
 
-  const { data: trainerData } = await supabase
-    .from('trainers')
-    .select('id')
-    .eq('auth_user_id', user.id)
-    .single()
+export async function startWorkoutForGroup(athleteProgramId: string): Promise<ActionResult<{ sessionId: string }>> {
+  // Authenticate and get trainer
+  const authResult = await withAuth()
+  if (!authResult.success) return authResult
+  const { supabase, trainer } = authResult.data
 
-  const trainer = trainerData as { id: string } | null
-
-  if (!trainer) {
-    return { success: false, error: 'Trainer profile not found' }
+  // Validate input
+  const validatedId = UuidSchema.safeParse(athleteProgramId)
+  if (!validatedId.success) {
+    return failure('Invalid athlete program ID')
   }
 
   // Get the athlete program details
@@ -42,7 +47,7 @@ export async function startWorkoutForGroup(athleteProgramId: string) {
     .single()
 
   if (apError || !athleteProgram) {
-    return { success: false, error: 'Athlete program not found' }
+    return failure('Athlete program not found')
   }
 
   const typedAthleteProgram = athleteProgram as {
@@ -57,7 +62,7 @@ export async function startWorkoutForGroup(athleteProgramId: string) {
     .sort((a, b) => a.workout_number - b.workout_number)
   
   if (programWorkouts.length === 0) {
-    return { success: false, error: 'This program has no workouts defined' }
+    return failure('This program has no workouts defined')
   }
 
   // Determine which workout to start
@@ -75,37 +80,33 @@ export async function startWorkoutForGroup(athleteProgramId: string) {
     currentWorkout = programWorkouts[0]
     
     // Update the athlete_program with this workout number for future tracking
-    await (supabase
-      .from('athlete_programs') as any)
+    await supabase
+      .from('athlete_programs')
       .update({ current_workout_number: currentWorkout.workout_number })
       .eq('id', athleteProgramId)
   }
-  
-  console.log('Starting workout number:', currentWorkout.workout_number, 'for athlete program:', athleteProgramId)
 
   // Create the workout session
-  const insertData = {
-    athlete_program_id: athleteProgramId,
-    program_workout_id: currentWorkout.id,
-    trainer_id: trainer.id,
-    status: 'in_progress' as const,
-    started_at: new Date().toISOString(),
-  }
-  
-  const { data: session, error: sessionError } = await (supabase
-    .from('workout_sessions') as any)
-    .insert(insertData)
+  const { data: session, error: sessionError } = await supabase
+    .from('workout_sessions')
+    .insert({
+      athlete_program_id: athleteProgramId,
+      program_workout_id: currentWorkout.id,
+      trainer_id: trainer.id,
+      status: 'in_progress',
+      started_at: new Date().toISOString(),
+    })
     .select('id')
     .single()
 
-  if (sessionError) {
-    return { success: false, error: sessionError.message }
+  if (sessionError || !session) {
+    return failure(sessionError?.message || 'Failed to create workout session')
   }
 
   revalidatePath('/sessions/group')
   revalidatePath('/')
   
-  return { success: true, sessionId: session.id }
+  return success({ sessionId: session.id })
 }
 
 export async function logExerciseResult({
@@ -122,26 +123,42 @@ export async function logExerciseResult({
   speedColumnUsed?: number | null
   actualSpeed?: number | null
   notes?: string | null
-}) {
-  const supabase = await createClient()
+}): Promise<ActionResult<void>> {
+  // Authenticate
+  const authResult = await withAuth()
+  if (!authResult.success) return authResult
+  const { supabase } = authResult.data
+
+  // Validate input
+  const validated = LogExerciseResultSchema.safeParse({
+    workoutSessionId,
+    workoutExerciseId,
+    completionLevel,
+    speedColumnUsed,
+    actualSpeed,
+    notes,
+  })
+
+  if (!validated.success) {
+    const firstError = Object.values(validated.error.flatten().fieldErrors).flat()[0] || 'Invalid input'
+    return failure(firstError)
+  }
 
   // Insert the exercise result
-  const exerciseResultData = {
-    workout_session_id: workoutSessionId,
-    workout_exercise_id: workoutExerciseId,
-    completion_level: completionLevel,
-    speed_column_used: speedColumnUsed || null,
-    actual_speed: actualSpeed || null,
-    notes: notes || null,
-    completed_at: new Date().toISOString(),
-  }
-  
-  const { error } = await (supabase
-    .from('exercise_results') as any)
-    .insert(exerciseResultData)
+  const { error } = await supabase
+    .from('exercise_results')
+    .insert({
+      workout_session_id: validated.data.workoutSessionId,
+      workout_exercise_id: validated.data.workoutExerciseId,
+      completion_level: validated.data.completionLevel,
+      speed_column_used: validated.data.speedColumnUsed ?? null,
+      actual_speed: validated.data.actualSpeed ?? null,
+      notes: validated.data.notes || null,
+      completed_at: new Date().toISOString(),
+    })
 
   if (error) {
-    return { success: false, error: error.message }
+    return failure(error.message)
   }
 
   // Check if all exercises are complete
@@ -159,13 +176,20 @@ export async function logExerciseResult({
     .single()
 
   if (session) {
-    const totalExercises = (session as any).program_workouts?.workout_exercises?.length || 0
-    const completedExercises = (session as any).exercise_results?.length || 0
+    const typedSession = session as {
+      id: string
+      athlete_program_id: string
+      program_workouts: { workout_exercises: { id: number }[] } | null
+      exercise_results: { id: string }[] | null
+    }
+    
+    const totalExercises = typedSession.program_workouts?.workout_exercises?.length || 0
+    const completedExercises = typedSession.exercise_results?.length || 0
 
     // If all exercises complete, mark session as complete and advance workout number
     if (completedExercises >= totalExercises) {
-      await (supabase
-        .from('workout_sessions') as any)
+      await supabase
+        .from('workout_sessions')
         .update({ 
           status: 'completed',
           completed_at: new Date().toISOString(),
@@ -176,16 +200,16 @@ export async function logExerciseResult({
       const { data: athleteProgram } = await supabase
         .from('athlete_programs')
         .select('current_workout_number')
-        .eq('id', (session as any).athlete_program_id)
+        .eq('id', typedSession.athlete_program_id)
         .single()
 
       if (athleteProgram) {
-        await (supabase
-          .from('athlete_programs') as any)
+        await supabase
+          .from('athlete_programs')
           .update({ 
-            current_workout_number: ((athleteProgram as any).current_workout_number || 2) + 1 
+            current_workout_number: (athleteProgram.current_workout_number || 2) + 1 
           })
-          .eq('id', (session as any).athlete_program_id)
+          .eq('id', typedSession.athlete_program_id)
       }
     }
   }
@@ -193,47 +217,68 @@ export async function logExerciseResult({
   revalidatePath('/sessions/group')
   revalidatePath('/')
 
-  return { success: true }
+  return successVoid()
 }
 
-export async function completeWorkoutSession(workoutSessionId: string, notes?: string) {
-  const supabase = await createClient()
+export async function completeWorkoutSession(workoutSessionId: string, notes?: string): Promise<ActionResult<void>> {
+  // Authenticate
+  const authResult = await withAuth()
+  if (!authResult.success) return authResult
+  const { supabase } = authResult.data
 
-  const { error } = await (supabase
-    .from('workout_sessions') as any)
+  // Validate input
+  const validatedId = UuidSchema.safeParse(workoutSessionId)
+  if (!validatedId.success) {
+    return failure('Invalid workout session ID')
+  }
+
+  // Sanitize notes
+  const sanitizedNotes = notes?.trim().slice(0, 1000) || null
+
+  const { error } = await supabase
+    .from('workout_sessions')
     .update({
       status: 'completed',
       completed_at: new Date().toISOString(),
-      notes: notes || null,
+      session_notes: sanitizedNotes,
     })
     .eq('id', workoutSessionId)
 
   if (error) {
-    return { success: false, error: error.message }
+    return failure(error.message)
   }
 
   revalidatePath('/sessions/group')
   revalidatePath('/')
 
-  return { success: true }
+  return successVoid()
 }
 
-export async function cancelGroupWorkout(workoutSessionId: string) {
-  const supabase = await createClient()
+export async function cancelGroupWorkout(workoutSessionId: string): Promise<ActionResult<void>> {
+  // Authenticate
+  const authResult = await withAuth()
+  if (!authResult.success) return authResult
+  const { supabase } = authResult.data
 
-  const { error } = await (supabase
-    .from('workout_sessions') as any)
+  // Validate input
+  const validatedId = UuidSchema.safeParse(workoutSessionId)
+  if (!validatedId.success) {
+    return failure('Invalid workout session ID')
+  }
+
+  const { error } = await supabase
+    .from('workout_sessions')
     .update({
       status: 'cancelled',
     })
     .eq('id', workoutSessionId)
 
   if (error) {
-    return { success: false, error: error.message }
+    return failure(error.message)
   }
 
   revalidatePath('/sessions/group')
   revalidatePath('/')
 
-  return { success: true }
+  return successVoid()
 }
