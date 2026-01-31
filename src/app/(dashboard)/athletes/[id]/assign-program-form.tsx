@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Plus, Loader2, Dumbbell, AlertCircle } from 'lucide-react'
+import { toast } from 'sonner'
 import { assignProgram } from '../actions'
 
 interface Program {
@@ -114,10 +115,16 @@ export function AssignProgramForm({
       
       if (result.error) {
         setError(result.error)
+        toast.error('Failed to assign program', {
+          description: result.error,
+        })
       } else {
         setOpen(false)
         setSelectedProgramId('')
         setNotes('')
+        toast.success('Program assigned', {
+          description: `${selectedProgram?.name} assigned to ${athleteName}.`,
+        })
         router.refresh()
       }
     })

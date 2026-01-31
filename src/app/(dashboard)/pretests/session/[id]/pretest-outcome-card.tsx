@@ -16,6 +16,7 @@ import {
   Heart,
   Dumbbell
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { 
   type PretestOutcome,
   type PretestTypeCode,
@@ -78,7 +79,20 @@ export function PretestOutcomeCard({
     if (notes) formData.set('notes', notes)
 
     startTransition(async () => {
-      await completePretest(formData)
+      try {
+        await completePretest(formData)
+        // If we reach here without redirect, show success
+        toast.success('Pre-test completed', {
+          description: `${athleteName}'s pre-test has been completed successfully.`,
+        })
+      } catch (error) {
+        // Only show error if it's not a redirect (NEXT_REDIRECT)
+        if (error instanceof Error && !error.message.includes('NEXT_REDIRECT')) {
+          toast.error('Failed to complete pre-test', {
+            description: error.message,
+          })
+        }
+      }
     })
   }
 

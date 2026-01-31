@@ -12,6 +12,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { XCircle, Loader2, AlertTriangle } from 'lucide-react'
+import { toast } from 'sonner'
 import { cancelWorkout } from '../../actions'
 
 interface CancelWorkoutButtonProps {
@@ -34,7 +35,20 @@ export function CancelWorkoutButton({
 
   const handleCancel = () => {
     startTransition(async () => {
-      await cancelWorkout(sessionId)
+      try {
+        await cancelWorkout(sessionId)
+        // If we reach here without redirect, show success
+        toast.success('Workout cancelled', {
+          description: `${athleteName}'s workout #${workoutNumber} has been cancelled.`,
+        })
+      } catch (error) {
+        // Only show error if it's not a redirect (NEXT_REDIRECT)
+        if (error instanceof Error && !error.message.includes('NEXT_REDIRECT')) {
+          toast.error('Failed to cancel workout', {
+            description: error.message,
+          })
+        }
+      }
     })
   }
 
