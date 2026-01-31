@@ -192,25 +192,26 @@ export function AthleteWorkoutCard({ workout, colorIndex, onRefresh }: AthleteWo
 
   return (
     <Card className={`bg-gradient-to-br ${colors.bg} ${colors.border} border-2 overflow-hidden transition-all`}>
-      {/* Main Quick-Tap Row */}
+      {/* Main Content */}
       <div className="p-4">
-        <div className="flex items-center gap-4">
+        {/* Top Row: Athlete Info + Exercise Details + Expand */}
+        <div className="flex items-center gap-3">
           {/* Athlete Info */}
-          <div className="flex items-center gap-3 min-w-[180px]">
-            <div className={`h-14 w-14 rounded-full bg-slate-800 flex items-center justify-center text-xl font-bold ${colors.accent} border-2 ${colors.border}`}>
+          <div className="flex items-center gap-3 shrink-0">
+            <div className={`h-12 w-12 md:h-14 md:w-14 rounded-full bg-slate-800 flex items-center justify-center text-lg md:text-xl font-bold ${colors.accent} border-2 ${colors.border}`}>
               {workout.athlete_name.charAt(0).toUpperCase()}
             </div>
             <div>
-              <p className="font-bold text-white text-lg">{workout.athlete_name}</p>
-              <p className="text-sm text-slate-400">
+              <p className="font-bold text-white text-base md:text-lg">{workout.athlete_name}</p>
+              <p className="text-xs md:text-sm text-slate-400">
                 Ex. {workout.completed_exercises + 1} / {workout.total_exercises}
               </p>
             </div>
           </div>
 
-          {/* Current Exercise Summary */}
+          {/* Current Exercise Summary - Hidden on small screens, shown inline on large */}
           {currentExercise && !isComplete ? (
-            <div className="flex-1 flex items-center gap-4">
+            <div className="hidden lg:flex flex-1 items-center gap-4">
               <div className="flex items-center gap-3 text-white">
                 <span className="font-mono text-lg font-semibold">{currentExercise.num_runs}x</span>
                 {currentExercise.incline !== null && (
@@ -245,59 +246,24 @@ export function AthleteWorkoutCard({ workout, colorIndex, onRefresh }: AthleteWo
             </div>
           ) : isComplete ? (
             <div className="flex-1 flex items-center justify-center">
-              <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-lg px-4 py-2">
-                <Check className="h-5 w-5 mr-2" />
-                Workout Complete!
+              <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-sm md:text-lg px-3 md:px-4 py-1 md:py-2">
+                <Check className="h-4 w-4 md:h-5 md:w-5 mr-1 md:mr-2" />
+                Complete!
               </Badge>
             </div>
           ) : (
             <div className="flex-1 flex items-center justify-center">
-              <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+              <Loader2 className="h-5 w-5 md:h-6 md:w-6 animate-spin text-slate-400" />
             </div>
           )}
 
-          {/* Completion Buttons - Large Touch Targets */}
-          {currentExercise && !isComplete && (
-            <div className="flex gap-2">
-              <button
-                onClick={() => handleLogResult('complete')}
-                disabled={isLogging}
-                className="h-16 w-16 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border-2 border-emerald-500/50 flex flex-col items-center justify-center transition-all active:scale-95 disabled:opacity-50"
-              >
-                <Check className="h-6 w-6 text-emerald-400" />
-                <span className="text-[10px] text-emerald-400 mt-0.5">Complete</span>
-              </button>
-              <button
-                onClick={() => handleLogResult('slight_touch')}
-                disabled={isLogging}
-                className="h-16 w-16 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border-2 border-cyan-500/50 flex flex-col items-center justify-center transition-all active:scale-95 disabled:opacity-50"
-              >
-                <Hand className="h-6 w-6 text-cyan-400" />
-                <span className="text-[10px] text-cyan-400 mt-0.5">Touch</span>
-              </button>
-              <button
-                onClick={() => handleLogResult('push')}
-                disabled={isLogging}
-                className="h-16 w-16 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border-2 border-amber-500/50 flex flex-col items-center justify-center transition-all active:scale-95 disabled:opacity-50"
-              >
-                <ArrowUp className="h-6 w-6 text-amber-400" />
-                <span className="text-[10px] text-amber-400 mt-0.5">Push</span>
-              </button>
-              <button
-                onClick={() => handleLogResult('failure')}
-                disabled={isLogging}
-                className="h-16 w-16 rounded-xl bg-red-500/20 hover:bg-red-500/30 border-2 border-red-500/50 flex flex-col items-center justify-center transition-all active:scale-95 disabled:opacity-50"
-              >
-                <X className="h-6 w-6 text-red-400" />
-                <span className="text-[10px] text-red-400 mt-0.5">Fail</span>
-              </button>
-            </div>
-          )}
+          {/* Spacer on smaller screens */}
+          <div className="flex-1 lg:hidden" />
 
           {/* Expand Button */}
           <button
             onClick={() => setExpanded(!expanded)}
-            className="h-10 w-10 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition-colors"
+            className="h-10 w-10 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition-colors shrink-0"
           >
             {expanded ? (
               <ChevronUp className="h-5 w-5 text-slate-400" />
@@ -306,6 +272,79 @@ export function AthleteWorkoutCard({ workout, colorIndex, onRefresh }: AthleteWo
             )}
           </button>
         </div>
+
+        {/* Exercise Details Row - Shown on smaller screens */}
+        {currentExercise && !isComplete && (
+          <div className="lg:hidden mt-3 flex items-center gap-2 flex-wrap">
+            <span className="font-mono text-base font-semibold text-white">{currentExercise.num_runs}x</span>
+            {currentExercise.incline !== null && (
+              <span className="text-slate-300 text-sm">{currentExercise.incline}%</span>
+            )}
+            <div className="flex gap-1">
+              {[1, 2, 3].map((col) => {
+                const speed = getSpeedForColumn(currentExercise, col as 1 | 2 | 3)
+                if (speed === null) return null
+                return (
+                  <button
+                    key={col}
+                    onClick={() => setSelectedSpeed(col as 1 | 2 | 3)}
+                    className={`px-2 py-0.5 rounded-md text-sm font-mono transition-all ${
+                      selectedSpeed === col
+                        ? `${colors.accent} bg-slate-800 ring-2 ${colors.ring}`
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {speed}
+                  </button>
+                )
+              })}
+              <span className="text-slate-500 text-sm">mph</span>
+            </div>
+            {currentExercise.time_pattern && (
+              <Badge variant="outline" className="text-slate-300 border-slate-600 text-xs">
+                {currentExercise.time_pattern}
+              </Badge>
+            )}
+          </div>
+        )}
+
+        {/* Completion Buttons Row - Always full width for touch accessibility */}
+        {currentExercise && !isComplete && (
+          <div className="mt-3 grid grid-cols-4 gap-2">
+            <button
+              onClick={() => handleLogResult('complete')}
+              disabled={isLogging}
+              className="h-14 md:h-16 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border-2 border-emerald-500/50 flex flex-col items-center justify-center transition-all active:scale-95 disabled:opacity-50"
+            >
+              <Check className="h-5 w-5 md:h-6 md:w-6 text-emerald-400" />
+              <span className="text-[9px] md:text-[10px] text-emerald-400 mt-0.5">Complete</span>
+            </button>
+            <button
+              onClick={() => handleLogResult('slight_touch')}
+              disabled={isLogging}
+              className="h-14 md:h-16 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border-2 border-cyan-500/50 flex flex-col items-center justify-center transition-all active:scale-95 disabled:opacity-50"
+            >
+              <Hand className="h-5 w-5 md:h-6 md:w-6 text-cyan-400" />
+              <span className="text-[9px] md:text-[10px] text-cyan-400 mt-0.5">Touch</span>
+            </button>
+            <button
+              onClick={() => handleLogResult('push')}
+              disabled={isLogging}
+              className="h-14 md:h-16 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border-2 border-amber-500/50 flex flex-col items-center justify-center transition-all active:scale-95 disabled:opacity-50"
+            >
+              <ArrowUp className="h-5 w-5 md:h-6 md:w-6 text-amber-400" />
+              <span className="text-[9px] md:text-[10px] text-amber-400 mt-0.5">Push</span>
+            </button>
+            <button
+              onClick={() => handleLogResult('failure')}
+              disabled={isLogging}
+              className="h-14 md:h-16 rounded-xl bg-red-500/20 hover:bg-red-500/30 border-2 border-red-500/50 flex flex-col items-center justify-center transition-all active:scale-95 disabled:opacity-50"
+            >
+              <X className="h-5 w-5 md:h-6 md:w-6 text-red-400" />
+              <span className="text-[9px] md:text-[10px] text-red-400 mt-0.5">Fail</span>
+            </button>
+          </div>
+        )}
 
         {/* Progress Bar */}
         <div className="mt-3 flex items-center gap-3">
