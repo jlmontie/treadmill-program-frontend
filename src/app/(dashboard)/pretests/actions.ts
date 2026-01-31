@@ -80,8 +80,8 @@ export async function recordStepResult(
   completionLevel: string,
   notes?: string
 ): Promise<ActionResult<void>> {
-  // Authenticate
-  const authResult = await withAuth()
+  // Authenticate with rate limiting
+  const authResult = await withAuthRateLimited()
   if (!authResult.success) return authResult
   const { supabase } = authResult.data
 
@@ -249,8 +249,8 @@ export async function updateStepResult(
   completionLevel: string,
   notes?: string
 ): Promise<ActionResult<void>> {
-  // Authenticate
-  const authResult = await withAuth()
+  // Authenticate with rate limiting
+  const authResult = await withAuthRateLimited()
   if (!authResult.success) return authResult
   const { supabase } = authResult.data
 
