@@ -717,6 +717,21 @@ const url = process.env.NEXT_PUBLIC_SUPABASE_URL
 3. ✅ Add to config object with proper typing
 4. ✅ Document in README if user-facing
 
+### 3. Known Issue: Turbopack + NEXT*PUBLIC*\* Variables
+
+**Context:** Next.js 16 uses Turbopack by default in development.
+
+**Issue:** On first client-side page load in dev mode, `NEXT_PUBLIC_*` variables may not be injected into the client bundle immediately. They become available after the first server compilation.
+
+**Solution Implemented:** The `validateEnv()` function in `src/lib/env.ts` is lenient on client-side validation but strict on server-side. This is intentional and should NOT be changed.
+
+**Impact:**
+
+- ✅ Server always has variables (production safety maintained)
+- ✅ Client loads without crashing (development UX)
+- ✅ Variables available after first HMR/navigation
+- ✅ Production builds work normally (variables baked in at build time)
+
 ```typescript
 // src/lib/env.ts
 const envSchema = z.object({
