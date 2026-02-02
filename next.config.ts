@@ -1,14 +1,33 @@
 import type { NextConfig } from 'next'
 import bundleAnalyzer from '@next/bundle-analyzer'
+import withPWAInit from '@ducanh2912/next-pwa'
 
 // Bundle analyzer (run with ANALYZE=true npm run build)
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
 })
 
+// PWA configuration
+const withPWA = withPWAInit({
+  dest: 'public',
+  disable: process.env.NODE_ENV === 'development',
+  register: true,
+  cacheOnFrontEndNav: true,
+  aggressiveFrontEndNavCaching: true,
+  reloadOnOnline: true,
+  workboxOptions: {
+    disableDevLogs: true,
+    skipWaiting: true,
+    clientsClaim: true,
+  },
+})
+
 const nextConfig: NextConfig = {
   // Note: typedRoutes requires route type generation and Link component updates
   // Can be enabled later: typedRoutes: true,
+
+  // Turbopack configuration (empty to acknowledge webpack plugin usage)
+  turbopack: {},
 
   // Security headers
   headers: async () => [
@@ -71,4 +90,4 @@ const nextConfig: NextConfig = {
   },
 }
 
-export default withBundleAnalyzer(nextConfig)
+export default withPWA(withBundleAnalyzer(nextConfig))

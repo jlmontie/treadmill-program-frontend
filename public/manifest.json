@@ -1,0 +1,60 @@
+{
+  "name": "TreadTrack - Treadmill Training Program",
+  "short_name": "TreadTrack",
+  "description": "A web application for administering treadmill training programs to athletes. Manage up to 6 athletes simultaneously with pre-testing, workout tracking, and progress monitoring.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0ea5e9",
+  "orientation": "landscape",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-256x256.png",
+      "sizes": "256x256",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-384x384.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["fitness", "sports", "health"],
+  "shortcuts": [
+    {
+      "name": "Athletes",
+      "short_name": "Athletes",
+      "description": "View and manage athletes",
+      "url": "/athletes",
+      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Group Session",
+      "short_name": "Session",
+      "description": "Start a group training session",
+      "url": "/sessions/group",
+      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Programs",
+      "short_name": "Programs",
+      "description": "View training programs",
+      "url": "/programs",
+      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
+    }
+  ]
+}

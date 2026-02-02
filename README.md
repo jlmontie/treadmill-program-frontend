@@ -11,6 +11,7 @@ A modern Next.js web application for administering treadmill training programs t
 - **Program Browser**: View all 36+ training programs
 - **Multi-Athlete Support**: Manage up to 6 concurrent athletes
 - **Real-time Updates**: Live workout tracking across devices
+- **Progressive Web App**: Installable on tablets as a native-like app with offline support
 
 ## Tech Stack
 
@@ -21,6 +22,7 @@ A modern Next.js web application for administering treadmill training programs t
 - **UI Components**: shadcn/ui
 - **Forms**: React Hook Form + Zod
 - **Language**: TypeScript
+- **PWA**: @ducanh2912/next-pwa (service worker, offline support)
 
 ## Getting Started
 
@@ -370,6 +372,7 @@ This codebase has been systematically hardened for production deployment.
 - [Production Readiness Plan](./docs/production-readiness-plan.md) - Complete implementation roadmap
 - [AI Coding Standards](./docs/AI_CODING_STANDARDS.md) - Strict rules for AI agents
 - [Performance Guide](./docs/performance.md) - Optimization strategies and metrics
+- [PWA Features](./docs/PWA.md) - Progressive Web App capabilities and installation guide
 - [Code Review](./docs/code-review.md) - Historical review and improvements
 
 ---
